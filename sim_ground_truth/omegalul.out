@@ -1,0 +1,92 @@
+Info: [VCS_SAVE_RESTORE_INFO] ASLR (Address Space Layout Randomization) is detected on the machine. To enable $save functionality, ASLR will be switched off and simv re-executed.
+Please use '-no_save' simv switch to avoid re-execution or '-suppress=ASLR_DETECTED_INFO' to suppress this message.
+Chronologic VCS simulator copyright 1991-2023
+Contains Synopsys proprietary information.
+Compiler version U-2023.03-SP2-1_Full64; Runtime version U-2023.03-SP2-1_Full64;  Apr  4 21:33 2025
+Loading memory file: programs/omegalul.mem
+Using writeback output file: output/omegalul.wb
+Using pipeline output file: output/omegalul.ppln
+@@
+@@
+@@                     0  Asserting System reset......
+@@
+@@                     0 : System STILL at reset, can't show anything
+@@
+@@
+@@                  3000 : System STILL at reset, can't show anything
+@@
+@@
+@@                  6000 : System STILL at reset, can't show anything
+@@
+@@
+@@                  9000 : System STILL at reset, can't show anything
+@@
+@@                 11500  Deasserting System reset......
+@@
+@@
+@@@ Unified Memory contents hex on left, decimal on right: 
+@@@
+@@@ mem[    0] = 000000970000717a : 648540090746
+@@@ mem[    8] = 0001011708c08093 : 282673419419795
+@@@ mem[   16] = 00010413ff410113 : 285958910050579
+@@@ mem[   24] = 9281819300001197 : 10556861469893333399
+@@@ mem[   32] = 0000029300000213 : 2830383448595
+@@@ mem[   40] = 0000039300000313 : 3929895076627
+@@@ mem[   48] = 0000051300000493 : 5579162518675
+@@@ mem[   56] = 0000061300000593 : 6678674146707
+@@@ mem[   64] = 0000071300000693 : 7778185774739
+@@@ mem[   72] = 0000081300000793 : 8877697402771
+@@@ mem[   80] = 0000091300000893 : 9977209030803
+@@@ mem[   88] = 00000a1300000993 : 11076720658835
+@@@ mem[   96] = 00000b1300000a93 : 12176232286867
+@@@ mem[  104] = 00000c1300000b93 : 13275743914899
+@@@ mem[  112] = 00000d1300000c93 : 14375255542931
+@@@ mem[  120] = 00000e1300000d93 : 15474767170963
+@@@ mem[  128] = 00000f1300000e93 : 16574278798995
+@@@ mem[  136] = 04c0006f00000f93 : 342274048421531539
+@@@ mem[  144] = f701011300010117 : 17798508383460983063
+@@@ mem[  152] = 00000013fea12c23 : 85876354083
+@@@ mem[  160] = 0000001310500073 : 81878057075
+@@@ mem[  168] = 0000001300000013 : 81604378643
+@@@ mem[  176] = 00812e23fe010113 : 36361004115886355
+@@@ mem[  184] = fea4262302010413 : 18348832713613575187
+@@@ mem[  192] = fff7c793fec42783 : 18444430237367543683
+@@@ mem[  200] = 01c1240300078513 : 126421859847079187
+@@@ mem[  208] = 0000806702010113 : 141179903607059
+@@@ mem[  216] = 00112e23fe010113 : 4835806724292883
+@@@ mem[  224] = 0201041300812c23 : 144401142711921699
+@@@ mem[  232] = 16e78793000077b7 : 1650436853884549047
+@@@ mem[  240] = fec42783fef42623 : 18357841428940596771
+@@@ mem[  248] = fef4242300c78793 : 18371348512706627475
+@@@ mem[  256] = fe842703fe442783 : 18339826480663766915
+@@@ mem[  264] = fec4250300e7a023 : 18357838675899293731
+@@@ mem[  272] = fa0080e700000097 : 18014540239107784855
+@@@ mem[  280] = 00000793fea42623 : 8332213757475
+@@@ mem[  288] = 01c1208300078513 : 126418011556381971
+@@@ mem[  296] = 0201011301812403 : 144397844193813507
+@@@ mem[  304] = 0000000000008067 : 32871
+@@@
+@@@ mem[65480] = 0000716e00000000 : 124717260341248
+@@@
+@@@ mem[65496] = 0001000000000000 : 281474976710656
+@@@
+@@@ mem[65512] = ffff8e910000717a : 18446619352154272122
+@@@
+@@@ mem[65528] = 0000009000000000 : 618475290624
+@@@
+@@               1118000 : System halted
+@@
+@@@ System halted on WFI instruction
+@@@
+@@
+@@  370 cycles / 73 instrs = 5.068493 CPI
+@@
+@@  1107.00 ns total time to execute
+@@
+
+$finish called from file "test/pipeline_test.sv", line 296.
+$finish at simulation time              1218000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 1218000 ps
+CPU Time:      0.140 seconds;       Data structure size:   0.1Mb
+Fri Apr  4 21:33:51 2025
