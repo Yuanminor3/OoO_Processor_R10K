@@ -1,10 +1,10 @@
 # CSEE W4824: Computer Architecture Final Project
 
-## Clock period
+## 🚀 Clock period
 
 1. Adjust it in `Makefile`
 
-## Run Simulation
+## 🚀 Run Simulation
 
 ### 🔹 Run a Single Test Program
 
@@ -56,7 +56,7 @@ To test all programs in the `programs/` folder at once:
    ```
 ---
 
-## Run Synthesis (takes a few hours)
+## 🚀 Run Synthesis (takes a few hours)
 
 ### 🔹 Run a Single Test Program
 
