@@ -2,7 +2,7 @@
 
 ## Clock period
 
-1. Adjust it in Makefile
+1. Adjust it in `Makefile`
 
 ## Run Simulation
 
