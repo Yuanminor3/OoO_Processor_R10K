@@ -1,8 +1,8 @@
-# Fall CSEE W4824: Computer Architecture Final Project
+# CSEE W4824: Computer Architecture Final Project
 
 ## 📋 Team Information
-
-- **Team Number**: 6
+- Columbia University - Spring 2025
+- **Team Number**: Group 6
 - **Team Members**:
   - Yuan Jiang (yj2848@columbia.edu)
   - Hongrui Huang (hh3084@columbia.edu)
@@ -15,8 +15,8 @@
       XXX
 
 ## 🏆 Project Results
-1. simulation (Minimum Clock: XXXns):   Sim Total Passed **33 out of 33**
-2. synthesis (Minimum Clock: XXXns):   Syn Total Passed **33 out of 33**
+- simulation (Minimum Clock: XXXns):   Sim Total Passed **33 out of 33**
+- synthesis (Minimum Clock: XXXns):   Syn Total Passed **33 out of 33**
 
 ## ⏰ Clock period (default is 250ns)
 
