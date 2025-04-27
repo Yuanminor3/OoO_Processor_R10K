@@ -1,8 +1,42 @@
-# CSEE W4824: Computer Architecture Final Project
+# Fall CSEE W4824: Computer Architecture Final Project
+               ```
+               Team Number:  6
 
-## 🚀 Clock period
+               Team Members: 
 
-1. Adjust it in `Makefile`
+               Yuan Jiang (yj2848@columbia.edu)
+               Hongrui Huang (hh3084@columbia.edu)
+               Zhelin Su (zs2709@columbia.edu)
+               Yuxi Zhang (yz4935@columbia.edu)
+               Lingxi Zhang (lz2991@columbia.edu)
+               Junfeng Zou (jz3850@columbia.edu)
+               ```
+## ✨ Project Features
+      XXX
+
+## 🏆 Project Results
+1. simulation (Minimum Clock: XXXns):   Sim Total Passed **33 out of 33**
+2. Synthesis (Minimum Clock: XXXns):   Syn Total Passed **33 out of 33**
+
+## ⏰ Clock period (default is 250ns)
+
+   Adjust it in `Makefile`
+
+## 🧩 Module Testbench
+To test a specific module using its corresponding testbench located in the `test/XXX_test.sv` folder:
+
+1. Identify the testbench file for the module you want to test (e.g., `test/alu_test.sv`, `test/cache_test.sv`, etc.)
+2. Run the following command to compile and simulate the module:
+   ```bash
+   make XXX.out
+   ```
+   - Replace XXX with the module name (e.g., alu, cache)
+   - This will automatically run the corresponding `XXX_test.sv` file
+3. The simulation will display **"pass"** or **"failed"** based on the test results in the terminal.
+4. After testing, it is recommended to clean up the generated files to avoid conflicts with later simulations:
+   ```bash
+   make nuke
+   ```
 
 ## 🚀 Run Simulation
 
@@ -107,5 +141,3 @@ To test all programs in the `programs/` folder at once:
    make nuke
    ```
 ---
-
-## TBD
