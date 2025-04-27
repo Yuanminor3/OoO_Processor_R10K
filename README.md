@@ -5,22 +5,36 @@
 - **Team Number**: Group 6
 - **Team Members**:
   - Yuan Jiang (yj2848@columbia.edu)
-  - Hongrui Huang (hh3084@columbia.edu)
-  - Zhelin Su (zs2709@columbia.edu)
   - Yuxi Zhang (yz4935@columbia.edu)
-  - Lingxi Zhang (lz2991@columbia.edu)
   - Junfeng Zou (jz3850@columbia.edu)
+  - Lingxi Zhang (lz2991@columbia.edu)
+  - Zhelin Su (zs2709@columbia.edu)
+  - Hongrui Huang (hh3084@columbia.edu)
 
-## ✨ Project Features
-      XXX
+## 📚 Project Overview
+
+This project implements an out-of-order, 32-bit processor based on a 3-way scaled R10K microarchitecture.  
+It supports the RV32IM ISA, featuring:
+- 3-way scalar pipeline
+- Advanced Branch Predictor
+- Non-blocking instruction cache (Icache)
+- Non-blocking 2-way 16-set Dcache with MSHRs support
+- Prefetch
+- Store Queue
+- Standard CSR operations and system calls
+
+The design includes key components such as fetch, dispatch, issue, functional units, complete, retire stages, reorder buffer (RoB), reservation stations (RS), physical register file (PR), and memory systems. 
+
+**Need to Replace Ours!!!!!!**
+![Top-Level Architecture](docs/architecture.png)
 
 ## 🏆 Project Results
 - simulation (Minimum Clock: XXXns):   Sim Total Passed **33 out of 33**
 - synthesis (Minimum Clock: XXXns):   Syn Total Passed **33 out of 33**
 
-## ⏰ Clock period (default is 250ns)
+## ⏰ Clock period (Default: 250ns)
 
-   Adjust it in `Makefile`
+- Adjust it in `Makefile`
 
 ## 🧩 Module Testbench
 To test a specific module using its corresponding testbench located in the `test/XXX_test.sv` folder:
