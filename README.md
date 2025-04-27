@@ -1,7 +1,7 @@
 # CSEE W4824: Computer Architecture Final Project
 
 ## 📋 Team Information
-- Columbia University - Spring 2025
+- **Columbia University - Spring 2025**
 - **Team Number**: Group 6
 - **Team Members**:
   - Yuan Jiang (yj2848@columbia.edu)
