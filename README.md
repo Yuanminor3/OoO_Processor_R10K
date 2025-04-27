@@ -26,6 +26,7 @@ It supports the RV32IM ISA, featuring:
 The design includes key components such as fetch, dispatch, issue, functional units, complete, retire stages, reorder buffer (RoB), reservation stations (RS), physical register file (PR), and memory systems. 
 
 **Need to Replace Ours!!!!!!**
+**Top-Level Architecture**
 ![Top-Level Architecture](docs/architecture.png)
 
 ## 🏆 Project Results
