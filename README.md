@@ -1,7 +1,7 @@
 # CSEE W4824: Computer Architecture Final Project
 
 ```
-TODO 1: Rename
+TODO 1: Rename + delete unused part of the test mode parameters
 TODO 2: Other Features
 TODO 3: architecture.png (need replace below)
 TODO 4: Find minimum clk for sim and syn (need record below)
