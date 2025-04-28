@@ -7,7 +7,7 @@ module fetch_stage (
     input   [2:0][31:0]         cache_data,         // <- icache.Icache_data_out
     input   [2:0]               cache_valid,        // <- Icache_valid_out
     input                       take_branch,        // taken-branch signal
-	input   [`XLEN-1:0]         target_pc,          // target pc: use if take_branch is TRUE
+    input   [`XLEN-1:0]         target_pc,          // target pc: use if take_branch is TRUE
     input   [2:0]               dis_stall,
 
     output  logic               hit_but_stall,      // -> icache.hit_but_stall
@@ -27,10 +27,10 @@ module fetch_stage (
     logic   [1:0]               first_hit;
     logic   [1:0]               first_stall;
 
-	// the next_PC[2] (smallest PC) is:
+    // the next_PC[2] (smallest PC) is:
     //  1. target_PC, if take branch
     //  2. PC_reg[2], if no branch and the current PC_reg[2] is not in the cache
-	//  3. PC_reg[1], if no branch and the current PC_reg[1] is not in the cache
+    //  3. PC_reg[1], if no branch and the current PC_reg[1] is not in the cache
     //  4. PC_reg[0], if no branch and the current PC_reg[0] is not in the cache
     //  5. PC_reg[0] + 4 = PC_reg[2] + 12, if no branch and all three PCs are in the cache
 	assign next_PC[2] = take_branch     ? target_pc :     // if take_branch, go to the target PC
@@ -109,3 +109,4 @@ module fetch_stage (
     end
 
 endmodule
+

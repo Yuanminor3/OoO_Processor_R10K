@@ -11,12 +11,11 @@
 `timescale 1ns/100ps
 `include "verilog/sys_defs.svh"
 
-
 module mem_controller (
     /* to mem */
     input [3:0] mem2ctlr_response,  // <- mem
-	input [63:0] mem2ctlr_data,     // <- mem
-	input [3:0] mem2ctlr_tag,       // <- mem
+    input [63:0] mem2ctlr_data,     // <- mem
+    input [3:0] mem2ctlr_tag,       // <- mem
 
     output logic [1:0] ctlr2mem_command,  // -> mem
     output logic [`XLEN-1:0] ctlr2mem_addr, // ->mem
@@ -72,7 +71,6 @@ module mem_controller (
             ctlr2mem_data = 0;
         end
     end
-
 
 endmodule
 

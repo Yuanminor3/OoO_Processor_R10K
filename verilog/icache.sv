@@ -118,6 +118,7 @@ module icache(
   assign wr_tag = fetch_wr_enable    ? fetch_tag :
                   prefetch_wr_enable ? prefetch_tag : 0;
 
+  `ifndef NO_PREFETCH
   prefetch pf (
     .clock(clock),
     .reset(reset),
@@ -146,6 +147,14 @@ module icache(
     , .store_prefetch_tag_display(store_prefetch_tag_display)
     `endif
   );
+  `else
+  assign already_fetched = 1'b0;
+  assign prefetch_command = 2'b00;
+  assign prefetch_addr = 64'b0;
+  assign prefetch_index = 5'b0;
+  assign prefetch_tag = 8'b0;
+  assign prefetch_wr_enable = 1'b0;
+  `endif
 
   always_comb begin
     if (shift == 2'd0) begin

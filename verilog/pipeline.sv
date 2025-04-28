@@ -1,11 +1,6 @@
 /////////////////////////////////////////////////////////////////////////
 //                                                                     //
-//   Modulename :  pipeline.v                                          //
-//                                                                     //
-//  Description :  Top-level module of the verisimple pipeline;        //
-//                 This instantiates and connects the stages of the    //
-//                 RS and components                                   //
-//                                                                     //
+//   			Modulename :  pipeline.v                       //
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
 `ifndef __PIPELINE_V__
@@ -14,33 +9,30 @@
 `define TEST_MODE
 `define DIS_DEBUG
 
-
 `timescale 1ns/100ps
 `include "verilog/sys_defs.svh"
 
+///////////////////////////////////////////////
+//                                           //
+//   	   Pipeline Instantiation            //
+//                                           //
+///////////////////////////////////////////////
+
 module pipeline(
-	input         clock,                    // System clock
-	input         reset,                    // System reset
-	input [3:0]   mem2proc_response,        // Tag from memory about current request
-	input [63:0]  mem2proc_data,            // Data coming back from memory
-	input [3:0]   mem2proc_tag,              // Tag from memory about current reply
-	
-	output logic [1:0]  proc2mem_command,    // command sent to memory
-	output logic [`XLEN-1:0] proc2mem_addr,      // Address sent to memory
-	output logic [63:0] proc2mem_data,      // Data sent to memory
+    input         clock,                     
+    input         reset,                     
+    input [3:0]   mem2proc_response,         // Current request tag from memory about 
+    input [63:0]  mem2proc_data,             // Data coming back from memory
+    input [3:0]   mem2proc_tag,              // Current reply tag from memory 
 
-    output logic        halt,
-    output logic [2:0]  inst_count
+    output logic [1:0]  proc2mem_command,    // Command sent to memory
+    output logic [`XLEN-1:0] proc2mem_addr,  // Address sent to memory
+    output logic [63:0] proc2mem_data,       // Data sent to memory
 
-	// output logic [3:0]  pipeline_completed_insts,
-	// output EXCEPTION_CODE   pipeline_error_status,
-	// output logic [4:0]  pipeline_commit_wr_idx,
-	// output logic [`XLEN-1:0] pipeline_commit_wr_data,
-	// output logic        pipeline_commit_wr_en,
-	// output logic [`XLEN-1:0] pipeline_commit_NPC
+    output logic        halt,		     // if pp is halted
+    output logic [2:0]  inst_count	     
 
-`ifdef TEST_MODE
-    // IF to Dispatch 
+`ifdef TEST_MODE 
     
     // ID 
     , output IF_ID_PACKET [2:0]         dis_in_display
@@ -70,7 +62,7 @@ module pipeline(
     , output ISSUE_FU_PACKET [2**`FU-1:0] fu_in_display
     , output FU_STATE_PACKET            fu_ready_display
     , output FU_STATE_PACKET            fu_finish_display
-    , output FU_COMPLETE_PACKET [2**`FU-1:0]         fu_packet_out_display
+    , output FU_COMPLETE_PACKET [2**`FU-1:0] fu_packet_out_display
 
     // SQ
     , output SQ_ENTRY_PACKET [0:2**`LSQ-1]  sq_display
@@ -90,8 +82,8 @@ module pipeline(
 
     // ROB
     , output ROB_ENTRY_PACKET [`ROBW-1:0]   rob_entries_display
-	, output [`ROB-1:0]                     head_display
-	, output [`ROB-1:0]                     tail_display
+    , output [`ROB-1:0]                     head_display
+    , output [`ROB-1:0]                     tail_display
     , output [2:0]                          rob_stall_display
 
     // Freelist
@@ -111,8 +103,9 @@ module pipeline(
 
     //Dcache
     , output logic [31:0] [63:0] cache_data_disp
-    , output logic [31:0] [7:0] cache_tags_disp
-    , output logic [31:0]       valids_disp
+    , output logic [31:0] [8:0]  cache_tags_disp
+    , output logic [31:0]        valids_disp
+    , output logic [1:0] [15:0]  dirties_disp
     , output MHSRS_ENTRY_PACKET [`MHSRS_W-1:0] MHSRS_disp
     , output logic [`MHSRS-1:0] head_pointer
     , output logic [`MHSRS-1:0] issue_pointer
@@ -122,7 +115,6 @@ module pipeline(
     // Retire
     , output ROB_ENTRY_PACKET [2:0]     retire_display
     , output                            BPRecoverEN_display
-
     
     // Branch Predictor
     , output BP_ENTRY_PACKET [`BPW-1:0] bp_entries_display
@@ -132,47 +124,28 @@ module pipeline(
 
 `ifdef DIS_DEBUG
     , output IF_ID_PACKET [2:0]          if_d_packet_debug
-    , output logic [2:0]                dis_new_pr_en_out
-    /* free list simulation */
-    // , input [2:0]                       free_pr_valid_debug
-    // , input [2:0][`PR-1:0]              free_pr_debug
-
-    /* maptable simulation */
-    /*
-    , output logic [2:0] [4:0]          maptable_lookup_reg1_ar_out
-    , output logic [2:0] [4:0]          maptable_lookup_reg2_ar_out
-    , output logic [2:0] [4:0]          maptable_allocate_ar_out
-    , output logic [2:0] [`PR-1:0]      maptable_allocate_pr_out
-    , input [2:0][`PR-1:0]              maptable_old_pr_debug
-    , input [2:0][`PR-1:0]              maptable_reg1_pr_debug
-    , input [2:0][`PR-1:0]              maptable_reg2_pr_debug
-    , input [2:0]                       maptable_reg1_ready_debug
-    , input [2:0]                       maptable_reg2_ready_debug
-    */
-
-    // , input [2:0]                       rob_stall_debug
-    // , input FU_STATE_PACKET             fu_ready_debug
-    // , input CDB_T_PACKET                cdb_t_debug
+    , output logic [2:0]                 dis_new_pr_en_out
 `endif
-
 
 // `ifdef CACHE_SIM
     , output SQ_ENTRY_PACKET [2:0]          cache_wb_sim
     , output logic [1:0][`XLEN-1:0]         cache_read_addr_sim
     , output logic [1:0]                    cache_read_start_sim
-//     , input [1:0][`XLEN-1:0]                cache_read_data_sim
-// `endif
-// */
-    
+// `endif  
 );
+
+///////////////////////////////////////////////
+//                                           //
+//   	     Wire Logic Definition           //
+//                                           //
+///////////////////////////////////////////////
+
 /* Fetch Stage */
 IF_ID_PACKET [2:0]           if_d_packet;
 logic    [2:0][31:0]         cache_data;
 logic    [2:0]               cache_valid;
-
 logic    [1:0]               fetch_shift;
 logic    [2:0][`XLEN-1:0]    proc2Icache_addr;
-
 logic    [2:0][63:0]         cachemem_data;
 logic    [2:0]               cachemem_valid;
 logic    [2:0][4:0]          current_index;
@@ -180,7 +153,6 @@ logic    [2:0][7:0]          current_tag;
 logic    [4:0]               wr_index;
 logic    [7:0]               wr_tag;
 logic                        data_write_enable;
-
 logic                        branchEN;
 logic [`XLEN-1:0]            branch_target_pc;
 
@@ -191,15 +163,15 @@ IF_ID_PACKET [2:0]      dis_packet_in;
 RS_IN_PACKET [2:0]      dis_rs_packet;
 ROB_ENTRY_PACKET [2:0]  dis_rob_packet;
 logic [2:0]             dis_new_pr_en;
-logic [2:0]             dis_stall; // if 1, corresponding inst stall due to structural hazard
+logic [2:0]             dis_stall; 
 // go to maptable
 logic [2:0][`PR-1:0]	maptable_allocate_pr;
-logic [2:0][4:0]		maptable_allocate_ar;
-logic [2:0][4:0]		maptable_lookup_reg1_ar;
-logic [2:0][4:0]		maptable_lookup_reg2_ar;
+logic [2:0][4:0]	maptable_allocate_ar;
+logic [2:0][4:0]	maptable_lookup_reg1_ar;
+logic [2:0][4:0]	maptable_lookup_reg2_ar;
 // go to SQ
-logic [2:0]				sq_stall;
-logic [2:0]				sq_alloc;
+logic [2:0]		sq_stall;
+logic [2:0]		sq_alloc;
 logic [2:0][`LSQ-1:0]	sq_tail_pos;
 
 /* Reservation Station */
@@ -210,11 +182,11 @@ RS_S_PACKET [2:0]       rs_is_packet;
 /* free list */
 logic [2:0]             free_pr_valid;
 logic [2:0][`PR-1:0]    free_pr;
-logic [2:0]		        DispatchEN;
-logic [2:0] 		    RetireEN;
+logic [2:0]		DispatchEN;
+logic [2:0] 		RetireEN;
 logic [2:0][`PR-1:0] 	RetireReg;
-logic [`ROB-1:0] 	    BPRecoverHead;
-logic [`ROB-1:0] 	    FreelistHead;
+logic [`ROB-1:0] 	BPRecoverHead;
+logic [`ROB-1:0] 	FreelistHead;
 logic [4:0]             fl_distance;
 
 /* map table */
@@ -227,29 +199,23 @@ logic [2:0]             maptable_reg1_ready;
 logic [2:0]             maptable_reg2_ready;
 logic [31:0][`PR-1:0] 	archi_maptable_out;
 
-//assign BPRecoverEN = 1'b0;
-//assign archi_maptable = 0;
+/* Issue stage */
+RS_S_PACKET [2:0]       is_packet_in;
+ISSUE_FU_PACKET [2**`FU-1:0] is_fu_packet;
+FU_FIFO_PACKET          fu_fifo_stall;
+logic [2:0][`PR-1:0]    rda_idx, rdb_idx; // access pr
+
+/* physical register */
+logic [2:0][`XLEN-1:0]  rdb_out, rda_out;
 
 /* arch map table */
 logic 		    [2:0][`PR-1:0] 	Tnew_in;
 logic 		    [2:0][4:0] 		Retire_AR;
 
-/* Issue stage */
-RS_S_PACKET [2:0]       is_packet_in;
-ISSUE_FU_PACKET [2**`FU-1:0] is_fu_packet;
-FU_FIFO_PACKET          fu_fifo_stall;
-logic [2:0][`PR-1:0]    is_pr1_idx, is_pr2_idx; // access pr
-
-
-/* physical register */
-logic [2:0][`XLEN-1:0]  pr1_read, pr2_read;
-
-
 /* Reorder Buffer */
-logic [2:0][`ROB-1:0]           new_rob_index;  // ROB.dispatch_index <-> dispatch.rob_index
-//ROB_ENTRY_PACKET[2:0]           rob_in;       // rob_in = dis_rob_packet
+logic [2:0][`ROB-1:0]           new_rob_index;    // ROB.dispatch_index <-> dispatch.rob_index
 logic       [2:0]               complete_valid;
-logic       [2:0][`ROB-1:0]     complete_entry;  // which ROB entry is done
+logic       [2:0][`ROB-1:0]     complete_entry;    // which ROB entry is done
 ROB_ENTRY_PACKET [2:0]          rob_retire_entry;  // which ENTRY to be retired
 logic       [2:0]               rob_stall;
 ROB_ENTRY_PACKET [`ROBW-1:0]    rob_entries;
@@ -275,11 +241,17 @@ SQ_ENTRY_PACKET [2:0]       cache_wb;
 SQ_ENTRY_PACKET [2:0]       sq_head;
 logic [2**`LSQ-1:0]         load_tail_ready;
 
-
 // icache
 logic                       hit_but_stall;
 logic [1:0]                 icache2mem_command;
 logic [`XLEN-1:0]           icache2mem_addr;
+logic   [1:0] prefetch_command;
+logic   [`XLEN-1:0] prefetch_addr;
+// If you use TEST_MODE displays, also add:
+logic [7:0]                     pref_count_display;
+logic [`PREF-1:0][3:0]          mem_tag_display;
+logic [`PREF-1:0][4:0]          store_prefetch_index_display;
+logic [`PREF-1:0][7:0]          store_prefetch_tag_display;
 
 // Dcache
 logic [1:0][`XLEN-1:0]      cache_read_addr;
@@ -307,37 +279,35 @@ logic [3:0]                 ctlr2dcache_tag;
 
 /* Complete Stage */
 CDB_T_PACKET                    cdb_t;
-FU_COMPLETE_PACKET [2**`FU-1:0]    fu_c_in;
+FU_COMPLETE_PACKET [2**`FU-1:0] fu_c_in;
 FU_STATE_PACKET                 fu_to_complete;
 logic       [2:0][`XLEN-1:0]    wb_value;
 logic       [2:0]               precise_state_valid;
 logic       [2:0][`XLEN-1:0]    target_pc;
 
 /* Retire Stage */
-logic       [2:0][`PR-1:0]			map_ar_pr;
-logic       [2:0][4:0]			    map_ar;
+logic       [2:0][`PR-1:0]	    map_ar_pr;
+logic       [2:0][4:0]		    map_ar;
 logic       [31:0][`PR-1:0]         recover_maptable;
 logic       [`XLEN-1:0]             fetch_pc;
 logic                               re_halt;
-//logic 		[2:0] 			        RetireEN;     
-//ROB_ENTRY_PACKET [2:0]              retire_entry;
 
 /* Branch Predictor */
 logic                               update_EN;
 logic       [`XLEN-1:0]             update_pc;
 logic                               update_direction;
 logic       [`XLEN-1:0]             update_target;
-logic       [2:0]                   dispatch_EN;
-logic       [2:0] [`XLEN-1:0]       dispatch_pc;
+
 logic       [2:0]                   fetch_EN;
 logic       [2:0] [`XLEN-1:0]       bp_fetch_pc;
 logic       [2:0]                   predict_direction_next;
 logic       [2:0] [`XLEN-1:0]       predict_pc_next;
 logic       [2:0]                   predict_found;
 
+
 /////////////////////////////////////////////////////////
-//          DEBUG  IN/OUTPUT                
-////////////////////////////////////////////////////////
+//                  TEST MODE DEBUG                    // 
+/////////////////////////////////////////////////////////
 `ifdef TEST_MODE
     
 // ID stage output
@@ -394,36 +364,14 @@ assign BPRecoverEN_display = BPRecoverEN;
 assign if_d_packet_debug = if_d_packet; 
 assign dis_new_pr_en_out = dis_new_pr_en;
 assign sq_stall_cache_display = sq_stall_cache;
-/* free list simulation */
-// assign free_pr_valid = free_pr_valid_debug;
-// assign free_pr = free_pr_debug;
-/* maptable simulation */
-/*
-assign maptable_lookup_reg1_ar_out = maptable_lookup_reg1_ar;
-assign maptable_lookup_reg2_ar_out = maptable_lookup_reg2_ar;
-assign maptable_allocate_ar_out = maptable_allocate_ar;
-assign maptable_allocate_pr_out = maptable_allocate_pr;
-assign maptable_old_pr = maptable_old_pr_debug;
-assign maptable_reg1_pr = maptable_reg1_pr_debug;
-assign maptable_reg2_pr = maptable_reg2_pr_debug;
-assign maptable_reg1_ready = maptable_reg1_ready_debug;
-assign maptable_reg2_ready = maptable_reg2_ready_debug;
-assign fu_ready = fu_ready_debug;
-*/
-//assign rob_stall = rob_stall_debug;  
-//assign cdb_t = cdb_t_debug;
 `endif
 assign cache_wb_sim = cache_wb;
 assign cache_read_addr_sim = cache_read_addr;
 assign cache_read_start_sim = cache_read_start;
-/*
+
 `ifdef CACHE_SIM
-
-
     assign cache_read_data = cache_read_data_sim;
-
 `endif
-*/
 
 //////////////////////////////////////////////////
 //                                              //
@@ -440,7 +388,6 @@ cache ic_mem(
     .wr1_tag(wr_tag),               // <- icache.wr_tag
     .rd1_tag(current_tag),          // <- icache.current_tag
     .wr1_data(ctlr2icache_data),    // <- controller.ctlr2icache_data
-
     .rd1_data(cachemem_data),       // -> icache.cachemem_data
     .rd1_valid(cachemem_valid)      // -> icache.mcachemem_valid
 );
@@ -453,7 +400,6 @@ icache ic(
     .Imem2proc_data(ctlr2icache_data),         // <- controller.ctlr2icache_data
     .Imem2proc_tag(ctlr2icache_tag),           // <- controller.ctlr2icache_tag
     .d_request(d_request),                     // <- controller.d_request
-
     .shift(fetch_shift),                    // <- fetch.shift
     .proc2Icache_addr(proc2Icache_addr),    // <- fetch.proc2Icache_addr
     .cachemem_data(cachemem_data),          // <- cache.rd1_data
@@ -463,10 +409,8 @@ icache ic(
 
     .proc2Imem_command(icache2mem_command), // -> controller.icache2mem_command
     .proc2Imem_addr(icache2mem_addr),       // -> controller.icache2mem_addr
-
     .Icache_data_out(cache_data),           // -> fetch.cache_data
     .Icache_valid_out(cache_valid),         // -> fetch.cache_valid
-
     .current_index(current_index),          // -> cache.rd1_idx
     .current_tag(current_tag),              // -> cache.rd1_tag
     .wr_index(wr_index),                    // -> cache.wr_idx
@@ -481,22 +425,60 @@ assign branch_target_pc =   (BPRecoverEN) ? fetch_pc :
                             (dis_packet_in[1].predict_direction) ? dis_packet_in[1].predict_pc :
                             (dis_packet_in[0].predict_direction) ? dis_packet_in[0].predict_pc : 0;
 
+// —— arbiter: fetch > prefetch 
+wire [1:0] ic_cmd   = icache2mem_command;
+wire [`XLEN-1:0] ic_addr = icache2mem_addr;
+wire [1:0] pf_cmd   = prefetch_command;
+wire [`XLEN-1:0] pf_addr = prefetch_addr;
+
+// ic_cmd > pf_cmd
+wire [1:0] arb_command = (ic_cmd != BUS_NONE) ? ic_cmd : pf_cmd;
+wire [`XLEN-1:0] arb_addr    = (ic_cmd != BUS_NONE) ? ic_addr : pf_addr;
+
 fetch_stage fetch(
     .clock(clock), 
     .reset(reset), 
     .cache_data(cache_data),                // <- icache.Icache_data_out
     .cache_valid(cache_valid),              // <- icache.Icache_valid_out
-    .take_branch(branchEN),              // <- retire.BPRecoverEN
-    .target_pc(branch_target_pc),                   // <- retire.target_pc
+    .take_branch(branchEN),                 // <- retire.BPRecoverEN
+    .target_pc(branch_target_pc),           // <- retire.target_pc
     .dis_stall(dis_stall),                  // <- dispatch.stall
     
     .hit_but_stall(hit_but_stall),          // -> icache.hit_but_stall
     .shift(fetch_shift),                    // -> icache.shift
     .proc2Icache_addr(proc2Icache_addr),    // -> icache.proc2Icache_addr
-    .if_packet_out(if_d_packet),             // -> dispatch
+    .if_packet_out(if_d_packet),            // -> dispatch
 
     .fetch_EN(fetch_EN),
     .fetch_pc(bp_fetch_pc)
+);
+
+//////////////////////////////////////////////////
+//               PREFETCH MODULE                //
+//////////////////////////////////////////////////
+prefetch prefetch_0 (
+    .clock                (clock),
+    .reset                (reset),
+    .Imem2pref_response   (ctlr2icache_response), // from mem_controller
+    .Imem2pref_tag        (ctlr2icache_tag),      // from mem_controller
+    .give_way             (~hit_but_stall),       // avoid collision with fetch
+    .branch               (branchEN),
+    .proc2Icache_addr     (proc2Icache_addr),
+    .cachemem_valid       (cachemem_valid),
+    .want_to_fetch        (icache2mem_command == BUS_LOAD),
+
+    .already_fetched      (),                    
+    .prefetch_command     (prefetch_command),
+    .prefetch_addr        (prefetch_addr),
+    .prefetch_index       (),                   
+    .prefetch_tag         (),
+    .prefetch_wr_enable   ()
+`ifdef TEST_MODE
+    , .pref_count_display              (pref_count_display)
+    , .mem_tag_display                 (mem_tag_display)
+    , .store_prefetch_index_display    (store_prefetch_index_display)
+    , .store_prefetch_tag_display      (store_prefetch_tag_display)
+`endif
 );
 
 //////////////////////////////////////////////////
@@ -508,16 +490,15 @@ fetch_stage fetch(
 mem_controller mc (
     /* to mem */
     .mem2ctlr_response(mem2proc_response),  // <- mem.mem2proc_response
-	.mem2ctlr_data(mem2proc_data),          // <- mem.mem2proc_data
-	.mem2ctlr_tag(mem2proc_tag),            // <- mem.mem2proc_tag
+    .mem2ctlr_data(mem2proc_data),          // <- mem.mem2proc_data
+    .mem2ctlr_tag(mem2proc_tag),            // <- mem.mem2proc_tag
 
     .ctlr2mem_command(proc2mem_command),    // -> mem.proc2mem_command
     .ctlr2mem_addr(proc2mem_addr),          // -> mem.proc2mem_addr
     .ctlr2mem_data(proc2mem_data),          // -> mem.proc2mem_data
 
-    /* to Icache */
-    .icache2ctlr_command(icache2mem_command),   // <- icache.proc2Imem_command
-    .icache2ctlr_addr(icache2mem_addr),         // <- icache.proc2Imem_addr
+    .icache2ctlr_command (arb_command),
+    .icache2ctlr_addr (arb_addr),
 
     .ctlr2icache_response(ctlr2icache_response),
     .ctlr2icache_data(ctlr2icache_data),              
@@ -536,141 +517,130 @@ mem_controller mc (
 
 //////////////////////////////////////////////////
 //                                              //
-//                 IF-D-Register                //
+//                 IF-D Register                //
 //                                              //
 //////////////////////////////////////////////////
-// Intermediate wires for dispatch input
-IF_ID_PACKET [2:0] dis_packet_in_next;
-IF_ID_PACKET [2:0] dis_packet_in_branch;
 
-// Branch recovery logic: squash younger instructions if a predicted branch is taken
+// intermediate storage for branch-pruned and next packets
+IF_ID_PACKET [2:0] dis_packet_in_branch;
+IF_ID_PACKET [2:0] dis_packet_in_next;
+
+// 1) prune any younger instructions when a branch is taken
 always_comb begin
-    dis_packet_in_branch = dis_packet_in;
+    // default: copy all three slots
+    for (int i = 0; i < 3; i++)
+        dis_packet_in_branch[i] = dis_packet_in[i];
+
+    // if the oldest slot predicts branch, squash slot 1&0
     if (dis_packet_in[2].predict_direction) begin
-        dis_packet_in_branch[1] = 0;
-        dis_packet_in_branch[0] = 0;
+        dis_packet_in_branch[1] = '0;
+        dis_packet_in_branch[0] = '0;
     end
+    // if the middle slot predicts branch, squash slot 0
     if (dis_packet_in[1].predict_direction) begin
-        dis_packet_in_branch[0] = 0;
+        dis_packet_in_branch[0] = '0;
     end
 end
 
+// 2) form next‐cycle packets based on stall mask
 always_comb begin
-    priority case(dis_stall)
-        3'b000: begin   // No stall
-            dis_packet_in_next = branchEN ? 0 : if_d_packet;
-            dis_packet_in_next[2].predict_direction = branchEN ? 0 : predict_direction_next[2];
-            dis_packet_in_next[1].predict_direction = branchEN ? 0 : predict_direction_next[1];
-            dis_packet_in_next[0].predict_direction = branchEN ? 0 : predict_direction_next[0];
-            dis_packet_in_next[2].predict_pc = branchEN ? 0 : predict_pc_next[2];
-            dis_packet_in_next[1].predict_pc = branchEN ? 0 : predict_pc_next[1];
-            dis_packet_in_next[0].predict_pc = branchEN ? 0 : predict_pc_next[0];
+    // build a zero‐or‐fresh‐fetch template that matches dis_packet_in_next’s type
+    IF_ID_PACKET [2:0] tmp_pkts;
+    for (int j = 0; j < 3; j++) begin
+        tmp_pkts[j] = branchEN ? '0      : if_d_packet[j];
+        tmp_pkts[j].predict_direction = branchEN ? 1'b0 : predict_direction_next[j];
+        tmp_pkts[j].predict_pc        = branchEN ? '0    : predict_pc_next[j];
+    end
+
+    // steer slots based on which are stalled
+    priority case (dis_stall)
+        3'b000: begin
+            // no stall → take the template as is
+            dis_packet_in_next = tmp_pkts;
         end
-        3'b001: begin       // stall 0th instruction
-            if (dis_packet_in_branch[0].valid) begin
-                dis_packet_in_next[2] = dis_packet_in_branch[0];
-                dis_packet_in_next[1:0] = branchEN ? 0 : if_d_packet[2:1];
-                dis_packet_in_next[1].predict_direction = branchEN ? 0 : predict_direction_next[2];
-                dis_packet_in_next[0].predict_direction = branchEN ? 0 : predict_direction_next[1];
-                dis_packet_in_next[1].predict_pc = branchEN ? 0 : predict_pc_next[2];
-                dis_packet_in_next[0].predict_pc = branchEN ? 0 : predict_pc_next[1];
-            end
-            else begin     
-                dis_packet_in_next[2:1] = branchEN ? 0 : if_d_packet[2:1];
-                dis_packet_in_next[2].predict_direction = branchEN ? 0 : predict_direction_next[2];
-                dis_packet_in_next[1].predict_direction = branchEN ? 0 : predict_direction_next[1];
-                dis_packet_in_next[2].predict_pc = branchEN ? 0 : predict_pc_next[2];
-                dis_packet_in_next[1].predict_pc = branchEN ? 0 : predict_pc_next[1];
-                dis_packet_in_next[0] = dis_packet_in_branch[0];
-            end
+        3'b001: begin
+            // stall slot0 only
+            if (dis_packet_in_branch[0].valid)
+                dis_packet_in_next = '{ dis_packet_in_branch[0],
+                                       tmp_pkts[2],
+                                       tmp_pkts[1] };
+            else
+                dis_packet_in_next = '{ tmp_pkts[2],
+                                       tmp_pkts[1],
+                                       dis_packet_in_branch[0] };
         end
-        3'b011: begin       // stall 0th and 1st instruction
-            if (dis_packet_in_branch[1].valid & dis_packet_in_branch[0].valid) begin
-                dis_packet_in_next[2:1] = dis_packet_in_branch[1:0];
-                dis_packet_in_next[0] = branchEN ? 0 : if_d_packet[2];
-                dis_packet_in_next[0].predict_direction = branchEN ? 0 : predict_direction_next[2];
-                dis_packet_in_next[0].predict_pc = branchEN ? 0 : predict_pc_next[2];
-            end
-            else if (~dis_packet_in_branch[1].valid & dis_packet_in_branch[0].valid) begin
-                dis_packet_in_next[2] = dis_packet_in_branch[0];
-                dis_packet_in_next[1] = branchEN ? 0 : if_d_packet[2];
-                dis_packet_in_next[1].predict_direction = branchEN ? 0 : predict_direction_next[2];
-                dis_packet_in_next[1].predict_pc = branchEN ? 0 : predict_pc_next[2];
-                dis_packet_in_next[0] = dis_packet_in_branch[1];
-            end
-            else if (dis_packet_in_branch[1].valid & ~dis_packet_in_branch[0].valid) begin
-                dis_packet_in_next[2] = dis_packet_in_branch[1];
-                dis_packet_in_next[1] = branchEN ? 0 : if_d_packet[2];
-                dis_packet_in_next[1].predict_direction = branchEN ? 0 : predict_direction_next[2];
-                dis_packet_in_next[1].predict_pc = branchEN ? 0 : predict_pc_next[2];
-                dis_packet_in_next[0] = dis_packet_in_branch[0];
-            end
-            else begin
-                dis_packet_in_next[2] = branchEN ? 0 : if_d_packet[2];
-                dis_packet_in_next[2].predict_direction = branchEN ? 0 : predict_direction_next[2];
-                dis_packet_in_next[2].predict_pc = branchEN ? 0 : predict_pc_next[2];
-                dis_packet_in_next[1] = dis_packet_in_branch[1];
-                dis_packet_in_next[0] = dis_packet_in_branch[0];
-            end
+        3'b011: begin
+            // stall slots0&1
+            if (dis_packet_in_branch[1].valid && dis_packet_in_branch[0].valid)
+                dis_packet_in_next = '{ dis_packet_in_branch[1],
+                                       dis_packet_in_branch[0],
+                                       tmp_pkts[2] };
+            else if (!dis_packet_in_branch[1].valid && dis_packet_in_branch[0].valid)
+                dis_packet_in_next = '{ dis_packet_in_branch[0],
+                                       tmp_pkts[2],
+                                       dis_packet_in_branch[1] };
+            else if (dis_packet_in_branch[1].valid && !dis_packet_in_branch[0].valid)
+                dis_packet_in_next = '{ dis_packet_in_branch[1],
+                                       tmp_pkts[2],
+                                       dis_packet_in_branch[0] };
+            else
+                dis_packet_in_next = '{ tmp_pkts[2],
+                                       dis_packet_in_branch[1],
+                                       dis_packet_in_branch[0] };
         end
-        3'b111: begin       // all stall
+        3'b111: begin
+            // all slots stalled → preserve pruned packets
             dis_packet_in_next = dis_packet_in_branch;
         end
         default: begin
+            // catch-all → same as full stall
+            dis_packet_in_next = dis_packet_in_branch;
         end
     endcase
 end
 
-
+// 3) clocked update: reset or latch the new packets
 always_ff @(posedge clock) begin
-    if(reset | BPRecoverEN) begin
-        for(int i=0; i<3; i++) begin
-            dis_packet_in[i].valid <= `SD 0;
-            dis_packet_in[i].inst <= `SD `NOP;
-            dis_packet_in[i].NPC <= `SD 0;
-            dis_packet_in[i].PC <= `SD 0;
-            dis_packet_in[i].predict_direction <= `SD 0;
-            dis_packet_in[i].predict_pc <= `SD 0;
+    if (reset | BPRecoverEN) begin
+        for (int k = 0; k < 3; k++) begin
+            dis_packet_in[k] <= '0;
+            dis_packet_in[k].inst <= `NOP;
         end
-    end 
-    else begin
-        for(int i=0; i<3; i++) begin
-            dis_packet_in[i].valid <= `SD dis_packet_in_next[i].valid;
-            dis_packet_in[i].inst <= `SD dis_packet_in_next[i].inst;
-            dis_packet_in[i].NPC <= `SD dis_packet_in_next[i].NPC;
-            dis_packet_in[i].PC <= `SD dis_packet_in_next[i].PC;
-            dis_packet_in[i].predict_direction <= `SD dis_packet_in_next[i].predict_direction;
-            dis_packet_in[i].predict_pc <= `SD dis_packet_in_next[i].predict_pc;
-        end
+    end else begin
+        for (int k = 0; k < 3; k++)
+            dis_packet_in[k] <= dis_packet_in_next[k];
     end
 end
-
-
 
 //////////////////////////////////////////////////
 //                                              //
 //               DISPATCH-Stage                 //
 //                                              //
 //////////////////////////////////////////////////
+
+// Calculate structural hazard stalls
+assign dis_stall = rs_stall | rob_stall | ~free_pr_valid | sq_stall;
+
+FU_SELECT [2:0] fu_sel_out;
+IF_ID_PACKET [2:0] dis_packet_out;
+logic       [2:0]                   dispatch_EN;
+logic       [2:0] [`XLEN-1:0]       dispatch_pc;
+
 dispatch_stage dipatch_0(
     // Input: Packets coming from the IF-D Register
-    .if_id_packet_in(dis_packet_in),
+    .dis_packet_in(dis_packet_in),
 
     // Inputs/Outputs for Reservation Station (RS)
-    .rs_stall(rs_stall),         // Input: RS stall signal
     .rs_in(dis_rs_packet),       // Output: RS allocated packet
 
     // Inputs/Outputs for Reorder Buffer (ROB)
-    .rob_stall(rob_stall),       // Input: ROB stall signal
     .rob_index(new_rob_index),   // Output: New allocated ROB index
     .rob_in(dis_rob_packet),     // Output: ROB allocated packet
 
     // Inputs/Outputs for Physical Register File (Freelist)
-    .free_reg_valid(free_pr_valid),  // Input: Freelist availability
     .free_pr_in(free_pr),            // Output: Allocated physical registers
 
     // Inputs/Outputs for Store Queue (SQ)
-    .sq_stall(sq_stall),             // Input: SQ stall signal
     .sq_alloc(sq_alloc),             // Output: SQ allocation signal
     .sq_tail_pos(sq_tail_pos),       // Input: SQ tail pointer
 
@@ -678,8 +648,10 @@ dispatch_stage dipatch_0(
     .maptable_new_pr(maptable_allocate_pr),    // Output: New PRs to map
     .maptable_ar(maptable_allocate_ar),        // Output: Architectural reg to map
     .maptable_old_pr(maptable_old_pr),          // Output: Old PRs to free later
+
     .reg1_ar(maptable_lookup_reg1_ar),          // Output: src1 AR for lookup
     .reg2_ar(maptable_lookup_reg2_ar),          // Output: src2 AR for lookup
+
     .reg1_pr(maptable_reg1_pr),                 // Input: src1 PR
     .reg2_pr(maptable_reg2_pr),                 // Input: src2 PR
     .reg1_ready(maptable_reg1_ready),            // Input: src1 readiness
@@ -690,14 +662,25 @@ dispatch_stage dipatch_0(
     .d_stall(dis_stall),            // Output: Dispatch stall back to fetch
 
     // Branch predictor interaction
-    .bp_EN(dispatch_EN),            // Output: Dispatch valid signal to BP
-    .bp_pc(dispatch_pc)             // Output: Dispatch PC signal to BP
+    .fu_sel_out(fu_sel_out),
+    .dis_packet_out (dis_packet_out)
 );
 
+// Send branch prediction information to BP unit
+always_comb begin
+    dispatch_EN = 0;
+    dispatch_pc = 0;
+    for (int i = 0; i < 3; i++) begin
+        if (dis_packet_out[i].valid && fu_sel_out[i] == BRANCH) begin
+            dispatch_EN[i] = 1;
+            dispatch_pc[i] = dis_packet_out[i].PC;
+        end
+    end
+end
 
 //////////////////////////////////////////////////
 //                                              //
-//               Maptable                       //
+//                   Maptable                   //
 //                                              //
 //////////////////////////////////////////////////
 
@@ -709,35 +692,29 @@ map_table map_table_0(
     .cdb_t_in(cdb_t),
     .maptable_new_ar(maptable_allocate_ar),
     .maptable_new_pr(maptable_allocate_pr),
+
     .reg1_ar(maptable_lookup_reg1_ar),
     .reg2_ar(maptable_lookup_reg2_ar),
+
     .reg1_tag(maptable_reg1_pr),
     .reg2_tag(maptable_reg2_pr),
+
     .reg1_ready(maptable_reg1_ready),
     .reg2_ready(maptable_reg2_ready),
     .Told_out(maptable_old_pr)
+
     `ifdef TEST_MODE
-    , .map_array_disp(map_array_disp),
-    .ready_array_disp(ready_array_disp)
-    `endif
-);
+    , .map_array_disp(map_array_disp) 
+    , .ready_array_disp(ready_array_disp)
+    `endif 
 
-arch_maptable arch_maptable_0(
-    .clock(clock),
-    .reset(reset),
-	.Tnew_in(map_ar_pr),
-	.Retire_AR(map_ar),
-	.Retire_EN(RetireEN),
-	.archi_maptable(archi_maptable_out)
 );
-
 
 //////////////////////////////////////////////////
 //                                              //
 //             Reservation Station              //
 //                                              //
 //////////////////////////////////////////////////
-
 
 RS RS_0(
     // Inputs
@@ -751,11 +728,11 @@ RS RS_0(
     // Outputs
     .issue_insts(rs_is_packet),
     .struct_stall(rs_stall)
+
     `ifdef TEST_MODE
     , .rs_entries_display(rs_entries_display)
-    `endif
+    `endif 
 );
-
 
 //////////////////////////////////////////////////
 //                                              //
@@ -768,32 +745,46 @@ always_ff @(posedge clock) begin
     else is_packet_in <= `SD rs_is_packet;
 end
 
-
 //////////////////////////////////////////////////
 //                                              //
 //                  ISSUE-Stage                 //
 //                                              //
 //////////////////////////////////////////////////
 
-issue_stage issue_0(
+ISSUE_FU_PACKET [2:0]   issue;
+
+always_comb begin
+    for(int i=0; i<3; i++) begin
+        issue[i].valid = is_packet_in[i].valid;
+        issue[i].op_sel = is_packet_in[i].op_sel;
+        issue[i].NPC = is_packet_in[i].NPC;
+        issue[i].PC = is_packet_in[i].PC;
+        issue[i].opa_select = is_packet_in[i].opa_select;
+        issue[i].opb_select = is_packet_in[i].opb_select;
+        issue[i].inst = is_packet_in[i].inst;
+        issue[i].halt = is_packet_in[i].halt;
+        issue[i].rob_entry = is_packet_in[i].rob_entry;
+        issue[i].sq_tail = is_packet_in[i].sq_tail;
+        issue[i].dest_pr = is_packet_in[i].dest_pr;
+        issue[i].r1_value = rda_out[i];
+        issue[i].r2_value = rdb_out[i];
+    end
+end
+
+// is fifo input
+FU_STATE_PACKET fu_ready_is;
+assign fu_ready_is = fu_ready & ~complete_stall;
+issue_stage is_0(
     // Input
-    .clock(clock),
-    .reset(reset | BPRecoverEN),
-    .rs_out(is_packet_in),
-    .read_rda(pr1_read),
-    .read_rdb(pr2_read),
-    .fu_ready(fu_ready & ~complete_stall),
-    // Output
-    .rda_idx(is_pr1_idx),
-    .rdb_idx(is_pr2_idx),
-    .issue_2_fu(is_fu_packet),
-    .fu_fifo_stall(fu_fifo_stall)
-    `ifdef TEST_MODE
-    , .alu_fifo_display(alu_fifo_display)
-    , .ls_fifo_display(ls_fifo_display)
-    , .mult_fifo_display(mult_fifo_display)
-    , .br_fifo_display(br_fifo_display)
-    `endif
+    .clock(clock),                            
+    .reset(reset | BPRecoverEN),  
+    .is_packet_in(is_packet_in),                            
+    .issue_fu_packet(issue), 
+    .fu_ready_is(fu_ready_is),
+
+    // Output                       
+    .fu_fifo_stall(fu_fifo_stall), 
+    .is_fu_packet(is_fu_packet)
 );
 
 //////////////////////////////////////////////////
@@ -802,20 +793,31 @@ issue_stage issue_0(
 //                                              //
 //////////////////////////////////////////////////
 
+/* read pr value */
+
+always_comb begin
+    for(int i=0; i<3; i++) begin
+        rda_idx[i] = is_packet_in[i].reg1_pr;
+        rdb_idx[i] = is_packet_in[i].reg2_pr;
+    end
+end
+
 physical_regfile pr_0(
-    // Inputs
-    .rda_idx (is_pr1_idx),
-    .rdb_idx (is_pr2_idx),
-    .wr_data (wb_value),
-    .wr_idx (cdb_t),
+    // Inputs PR tag
+    .read_idx_1 (rda_idx),
+    .read_idx_2 (rdb_idx),
+    .write_data (wb_value),
+    .write_idx (cdb_t),
     .clock (clock),
     .reset (reset),
+
     // Output
-    .rda_out(pr1_read),
-    .rdb_out(pr2_read),
+    .read_out_1(rda_out),
+    .read_out_2(rdb_out)
+
 `ifdef TEST_MODE
-    .pr_reg_display(pr_display)
-`endif
+    , .registers_display(pr_display)
+`endif 
 );
 
 //////////////////////////////////////////////////
@@ -838,140 +840,39 @@ end
 
 //////////////////////////////////////////////////
 //                                              //
-//                 EXECUTE-Stage                //
-//               (Functional Units)             //
+//           EXECUTE-Stage and SQ               //
+//               		                //
 //////////////////////////////////////////////////
 
-// fu should NOT start calculation when compelte stall is high
-
-fu_alu fu_alu_1(
-	.clock(clock),                          // system clock
-	.reset(reset | BPRecoverEN),                          // system reset
-    .complete_stall(complete_stall[ALU_1]),    // <- complete.fu_c_stall
-	.fu_packet_in(fu_packet_in[ALU_1]),        // <- issue.issue_2_fu
-    .fu_ready(fu_ready.alu_1),                // -> issue.fu_ready
-    .want_to_complete(fu_finish.alu_1),// -> complete.fu_finish
-	.fu_packet_out(fu_c_packet[ALU_1]),         //
-
-    // STORE
-    .if_store(exe_valid[0]),
-    .store_pckt(exe_store[0]),
-    .sq_idx(exe_idx[0])
-);
-
-fu_alu fu_alu_2(
-	.clock(clock),                          // system clock
-	.reset(reset | BPRecoverEN),                          // system reset
-    .complete_stall(complete_stall[ALU_2]),    // <- complete.fu_c_stall
-	.fu_packet_in(fu_packet_in[ALU_2]),        // <- issue.issue_2_fu
-    .fu_ready(fu_ready.alu_2),                // -> issue.fu_ready
-    .want_to_complete(fu_finish.alu_2),// -> complete.fu_finish
-	.fu_packet_out(fu_c_packet[ALU_2]),         // 
-
-    // STORE
-    .if_store(exe_valid[1]),
-    .store_pckt(exe_store[1]),
-    .sq_idx(exe_idx[1])
-);
-
-fu_alu fu_alu_3(
-	.clock(clock),                          // system clock
-	.reset(reset | BPRecoverEN),                          // system reset
-    .complete_stall(complete_stall[ALU_3]),    // <- complete.fu_c_stall
-	.fu_packet_in(fu_packet_in[ALU_3]),        // <- issue.issue_2_fu
-    .fu_ready(fu_ready.alu_3),                // -> issue.fu_ready
-    .want_to_complete(fu_finish.alu_3),// -> complete.fu_finish
-	.fu_packet_out(fu_c_packet[ALU_3]),         // -> complete.fu_c_in
-
-    // STORE
-    .if_store(exe_valid[2]),
-    .store_pckt(exe_store[2]),
-    .sq_idx(exe_idx[2])
-);
-
-fu_mult fu_mult_1(
-    .clock(clock),
-    .reset(reset | BPRecoverEN),
-    .complete_stall(complete_stall.mult_1),
-    .fu_packet_in(fu_packet_in[MULT_1]),
-    .fu_ready(fu_ready.mult_1),
-    .want_to_complete(fu_finish.mult_1),
-    .fu_packet_out(fu_c_packet[MULT_1])
-);
-
-fu_mult fu_mult_2(
-    .clock(clock),
-    .reset(reset | BPRecoverEN),
-    .complete_stall(complete_stall.mult_2),
-    .fu_packet_in(fu_packet_in[MULT_2]),
-    .fu_ready(fu_ready.mult_2),
-    .want_to_complete(fu_finish.mult_2),
-    .fu_packet_out(fu_c_packet[MULT_2])
-);
-
-fu_load fu_load_1(
-    .clock(clock),
-    .reset(reset | BPRecoverEN),
-    .complete_stall(complete_stall.loadstore_1),
-    .fu_packet_in(fu_packet_in[LS_1]),
-
-    // output
-    .fu_ready(fu_ready.loadstore_1),
-    .want_to_complete(fu_finish.loadstore_1),
-    .fu_packet_out(fu_c_packet[LS_1]),
-
-    // SQ
-    .sq_lookup(load_lookup[0]),    // -> SQ.load_lookup
-    .sq_result(load_forward[0]),   // <- SQ.load_forward
-
-    // Cache
-    .addr(cache_read_addr[0]),      // TODO: -> dcache 
-    .cache_data_in(ld_data[0]), // TODO: <- dcache 
-    .cache_read_EN(cache_read_start[0]),
-    .is_hit(is_hit[0]),
-    .broadcast_en(broadcast_fu[0]),
-    .broadcast_data(broadcast_data)
-);
-
-fu_load fu_load_2(
-    .clock(clock),
-    .reset(reset | BPRecoverEN),
-    .complete_stall(complete_stall.loadstore_2),
-    .fu_packet_in(fu_packet_in[LS_2]),
-
-    // output
-    .fu_ready(fu_ready.loadstore_2),
-    .want_to_complete(fu_finish.loadstore_2),
-    .fu_packet_out(fu_c_packet[LS_2]),
-
-    // SQ
-    .sq_lookup(load_lookup[1]),    // -> SQ.load_lookup
-    .sq_result(load_forward[1]),   // <- SQ.load_forward
-
-    // Cache
-    .addr(cache_read_addr[1]),      // TODO: -> dcache 
-    .cache_data_in(ld_data[1]), // TODO: <- dcache 
-    .cache_read_EN(cache_read_start[1]),
-    .is_hit(is_hit[1]),
-    .broadcast_en(broadcast_fu[1]),
-    .broadcast_data(broadcast_data)
-);
-
-
-branch_stage branc(
-    .clock(clock),
-    .reset(reset | BPRecoverEN),
-    .complete_stall(complete_stall.branch),
-    .fu_packet_in(fu_packet_in[BRANCH]),
-    .fu_ready(fu_ready.branch),
-    .want_to_complete_branch(fu_finish.branch),
-    .fu_packet_out(fu_c_packet[BRANCH]),
+execution_stage ex(
+    .clock(clock),                            
+    .reset(reset | BPRecoverEN),      
+    // all fu I/O
+    .complete_stall(complete_stall),
+    .fu_packet_in(fu_packet_in),       
+    .fu_ready(fu_ready),                
+    .fu_finish(fu_finish),        
+    .fu_c_packet(fu_c_packet),         
+    // alu to sq
+    .exe_valid(exe_valid), 
+    .exe_store(exe_store), 
+    .exe_idx(exe_idx), 
+    // fu_load <-> sq
+    .load_forward(load_forward), 
+    .load_lookup(load_lookup), 
+    // fu_load <-> dcache
+    .cache_read_addr(cache_read_addr), 
+    .cache_read_start(cache_read_start), 
+    .ld_data(ld_data), 
+    .is_hit(is_hit), 
+    .broadcast_fu(broadcast_fu), 
+    .broadcast_data(broadcast_data), 
+    // fu_branch to bp
     .update_EN(update_EN), 
     .update_pc(update_pc), 
-    .update_direction(update_direction),
+    .update_direction(update_direction), 
     .update_target(update_target)
 );
-
 
 SQ SQ_0(
     .clock(clock),
@@ -986,8 +887,9 @@ SQ SQ_0(
     .load_lookup(load_lookup),    // <- load.load_lookup
     .load_forward(load_forward),  // -> load.load_forward
     .retire(SQRetireEN),          // <- retire. SQRetireEN
-    .cache_wb(cache_wb),           // -> TODO: dcache, currently dangling
+    .cache_wb(cache_wb),           
     .sq_head(sq_head)
+
     `ifdef TEST_MODE
     , .sq_display(sq_display)
     , .head_dis(head_dis)
@@ -995,7 +897,7 @@ SQ SQ_0(
     , .filled_num_dis(filled_num_dis)
     , .older_stores_display(older_stores)
     , .older_stores_valid_display(older_stores_valid)
-    `endif
+    `endif 
 );
 
 //////////////////////////////////////////////////
@@ -1022,18 +924,18 @@ dcache dche_0(
     .ld_data(ld_data),
     .broadcast_fu(broadcast_fu),
     .broadcast_data(broadcast_data)
+
     `ifdef TEST_MODE
     , .cache_data_disp(cache_data_disp)
     , .cache_tags_disp(cache_tags_disp)
     , .valids_disp(valids_disp)
+    , .dirties_disp(dirties_disp)
     , .MHSRS_disp(MHSRS_disp)
     , .head_pointer(head_pointer)
     , .issue_pointer(issue_pointer)
     , .tail_pointer(tail_pointer)
-    `endif
+    `endif 
 );
-
-
 
 //////////////////////////////////////////////////
 //                                              //
@@ -1069,7 +971,6 @@ assign fu_to_complete = fu_result_waiting | fu_finish;
 //                      ROB                     //
 //                                              //
 //////////////////////////////////////////////////
-
 ROB rob_0(
     .clock(clock), 
     .reset(reset), 
@@ -1081,8 +982,9 @@ ROB rob_0(
     .BPRecoverEN(BPRecoverEN),                  // <- retire.BPRecoverEN
     .sq_stall(sq_stall_cache),
     .dispatch_index(new_rob_index),             // -> dispatch.rob_index
-    .retire_entry(rob_retire_entry),                // -> retire.rob_head_entry
-    .struct_stall(rob_stall)                    // -> dispatch.rob_stall
+    .retire_entry(rob_retire_entry),            // -> retire.rob_head_entry
+    .struct_stall(rob_stall)                  // -> dispatch.rob_stall
+
     `ifdef TEST_MODE
     , .rob_entries_display(rob_entries_display) // -> display entries
     , .head_display(head_display)               // -> display head
@@ -1090,7 +992,7 @@ ROB rob_0(
     `endif
     `ifdef ROB_DEBUG
     , .rob_entries_debug(rob_debug)             // <- debug input
-    `endif
+    `endif 
 );
 
 //////////////////////////////////////////////////
@@ -1111,9 +1013,10 @@ complete_stage cs(
     .complete_entry(complete_entry),            // -> ROB.complete_entry
     .precise_state_valid(precise_state_valid),  // -> ROB.precise_state_valid
     .target_pc(target_pc)                       // -> ROB.target_pc
+
     `ifdef TEST_MODE
     , .complete_pckt_in_display(complete_pckt_in_display)
-    `endif
+    `endif 
 );
 
 //////////////////////////////////////////////////
@@ -1124,22 +1027,58 @@ complete_stage cs(
     
 retire_stage retire_0(
     .rob_head_entry(rob_retire_entry),          // <- ROB.retire_entry
-    .fl_distance(fl_distance),                  // <- Freelist.fl_distance
+
     .BPRecoverEN(BPRecoverEN),                  // -> ROB.BPRecoverEN, Freelist.BPRecoverEN, fetch.take_branch
     .target_pc(fetch_pc),                       // -> fetch.target_pc
     .archi_maptable(archi_maptable_out),        // <- arch map.archi_maptable
-    .map_ar_pr(map_ar_pr),                      // -> arch map.Tnew_in
-    .map_ar(map_ar),                            // -> arch map.Retire_AR
     .recover_maptable(archi_maptable),          // -> map table.archi_maptable
-    .FreelistHead(FreelistHead),                // <- Freelist.FreelistHead
+
+    .fl_distance(fl_distance),                  // <- Freelist.fl_distance
     .Retire_EN(RetireEN),                       // -> Freelist.RetireEN
-    .Tolds_out(RetireReg),                      // -> Freelist.RetireReg
-    .BPRecoverHead(BPRecoverHead),              // -> Freelist.BPRecoverHead
-    .sq_stall(sq_stall_cache),
-    .SQRetireEN(SQRetireEN),                     // -> SQ.retire
+    .SQRetireEN(SQRetireEN),                    // -> SQ.retire
     .halt(re_halt),
     .inst_count(inst_count)
 );
+
+    always_comb begin
+        for (int i = 0; i < 3; i++) begin
+            map_ar[i]     = rob_retire_entry[i].arch_reg;
+            map_ar_pr[i]  = rob_retire_entry[i].Tnew;
+            RetireReg[i]  = rob_retire_entry[i].Told;
+        end
+    end
+
+    // Internal next-state and reset values
+    logic [31:0][`PR-1:0] archi_maptable_reset;  // Initial mapping: AR[i] -> PR[i]
+    logic [31:0][`PR-1:0] archi_maptable_next;   // Next-state value of archi_maptable
+
+    // Compute default/reset state: each AR maps to its index
+    always_comb begin : GenResetMap
+        for (int i = 0; i < 32; i++) begin
+            archi_maptable_reset[i] = i[`PR-1:0];  // Truncate or extend to match PR width
+        end
+    end
+
+    // Sequential logic: update archi_maptable on clock edge
+    always_ff @(posedge clock) begin : ArchMapRegister
+        if (reset) begin
+            archi_maptable_out <= `SD archi_maptable_reset;  // Reset to identity mapping
+        end else begin
+            archi_maptable_out <= `SD archi_maptable_next;   // Commit next-state updates
+        end
+    end
+
+    // Combinational logic: compute next-state mapping
+    always_comb begin : ComputeNextMap
+        archi_maptable_next = archi_maptable_out;  // Start from current state
+
+        // Process retire instructions from oldest to youngest
+        for (int i = 2; i >= 0; i--) begin
+            if (RetireEN[i]) begin
+                archi_maptable_next[map_ar[i]] = map_ar_pr[i];
+            end
+        end
+    end
 
 //////////////////////////////////////////////////
 //                                              //
@@ -1150,24 +1089,22 @@ retire_stage retire_0(
 Freelist fl_0(
     .clock(clock), 
     .reset(reset), 
-    .DispatchEN(dis_new_pr_en),                    //
+    .DispatchEN(dis_new_pr_en),                 
     .RetireEN(RetireEN),                        // <- retire.RetireEN
     .RetireReg(RetireReg),                      // <- retire.RetireReg
     .BPRecoverEN(BPRecoverEN),                  // <- retire.BPRecoverEN
-    .BPRecoverHead(BPRecoverHead),              // <- retire.BPRecoverHead
     .FreeReg(free_pr),                          // -> dispatch.free_pr_in 
     .Head(FreelistHead),                        // -> retire.FreelistHead
     .FreeRegValid(free_pr_valid),               // -> dispatch.free_reg_valid 
     .fl_distance(fl_distance)                   // -> retire.fl_distance
+
     `ifdef TEST_MODE
     , .array_display(fl_array_display)          // -> display
     , .head_display(fl_head_display)            // -> display
     , .tail_display(fl_tail_display)            // -> display
     , .empty_display(fl_empty_display)          // -> display
-    `endif
+    `endif 
 );
-
-
 
 //////////////////////////////////////////////////
 //                                              //
@@ -1189,12 +1126,14 @@ branch_predictor bp_0(
     .predict_found(predict_found), 
     .predict_direction(predict_direction_next), 
     .predict_pc(predict_pc_next)
+
     `ifdef TEST_MODE
     , .bp_entries_display(bp_entries_display)
-    `endif
+    `endif 
 );
 
 
 endmodule
 
 `endif // __PIPELINE_V__
+

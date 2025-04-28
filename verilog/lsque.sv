@@ -356,6 +356,4 @@ end
 
 endmodule
 
-
-
 `endif // __LSQUE_V__

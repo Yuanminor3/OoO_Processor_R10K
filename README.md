@@ -1,5 +1,12 @@
 # CSEE W4824: Computer Architecture Final Project
 
+```
+TODO 1: Rename
+TODO 2: Other Features
+TODO 3: architecture.png (need replace below)
+TODO 4: Find minimum clk for sim and syn (need record below)
+```
+
 ## 📋 Team Information
 - **Columbia University - Spring 2025**
 - **Team Number**: Group 6
@@ -13,19 +20,18 @@
 
 ## 📚 Project Overview
 
-This project implements an out-of-order, 32-bit processor based on a 3-way scaled R10K microarchitecture.  
+This project implements an out-of-order, 32-bit processor based on a 3-way scaled R10K microarchitecture.
 It supports the RV32IM ISA, featuring:
 - 3-way scalar pipeline
 - Advanced Branch Predictor
-- Non-blocking instruction cache (Icache)
-- Non-blocking 2-way 16-set Dcache with MSHRs support
+- Non-blocking Icache(256Bytes)
+- Non-blocking 2-way 16-set Dcache(256Bytes) with MSHRs support
 - Prefetch
 - Store Queue
 - Standard CSR operations and system calls
 
 The design includes key components such as fetch, dispatch, issue, functional units, complete, retire stages, reorder buffer (RoB), reservation stations (RS), physical register file (PR), and memory systems. 
 
-**Need to Replace Ours!!!!!!**
 **Top-Level Architecture**
 ![Top-Level Architecture](docs/architecture.png)
 
@@ -33,7 +39,7 @@ The design includes key components such as fetch, dispatch, issue, functional un
 - simulation (Minimum Clock: XXXns):   Sim Total Passed **33 out of 33**
 - synthesis (Minimum Clock: XXXns):   Syn Total Passed **33 out of 33**
 
-## ⏰ Clock period (Default: 250ns)
+## ⏰ Clock Period (default: 250ns)
 
 - Adjust it in `Makefile`
 

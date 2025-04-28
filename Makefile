@@ -177,7 +177,7 @@ GREP = grep -E --color=auto
 # - with dependencies: 'rob.simv', 'rob.cov', and 'synth/rob.vg'
 
 # TODO: add more modules here
-TESTED_MODULES = rs map_table arch_maptable rob freelist fu_mult dcache branch_fu bp SQ ls
+TESTED_MODULES = dcache icache fu_alu fu_load fu_mult branch_fu issue complete_stage re_stage lsque map_tables rs rob freelist branch_predictor fetch_stage dispatch prefetch
 
 MODULE = pipeline
 
@@ -186,8 +186,61 @@ MODULE = pipeline
 # Helper function:
 DEPS = $(1).simv $(1).cov synth/$(1).vg
 
-MULT_DEPS = verilog/mult_stage.sv
-$(call DEPS,mult): $(MULT_DEPS)
+# Prefetch
+prefetch_DEPS = verilog/prefetch.sv
+$(call DEPS,prefetch): $(prefetch_DEPS)
+
+# dispatch
+dispatch_DEPS = verilog/dispatch.sv
+$(call DEPS,dispatch): $(dispatch_DEPS)
+
+# fetch_stage
+fetch_stage_DEPS = verilog/fetch_stage.sv
+$(call DEPS,fetch_stage): $(fetch_stage_DEPS)
+
+# Branch Predictor
+branch_predictor_DEPS = verilog/branch_predictor.sv
+$(call DEPS,branch_predictor): $(branch_predictor_DEPS)
+
+# Multiply FU
+fu_mult_DEPS = verilog/fu_mult.sv
+$(call DEPS,fu_mult): $(fu_mult_DEPS)
+
+# Branch FU
+branch_fu_DEPS = verilog/branch_fu.sv
+$(call DEPS,branch_fu): $(branch_fu_DEPS)
+
+# DCache
+dcache_DEPS = verilog/dcache.sv
+$(call DEPS,dcache): $(dcache_DEPS)
+
+# ICache
+icache_DEPS = verilog/icache.sv
+$(call DEPS,icache): $(icache_DEPS)
+
+# ALU_fu
+fu_alu_DEPS = verilog/fu_alu.sv
+$(call DEPS,fu_alu): $(fu_alu_DEPS)
+
+# Load_fu
+fu_load_DEPS = verilog/fu_load.sv
+$(call DEPS,fu_load): $(fu_load_DEPS)
+
+# IS
+IS_DEPS = verilog/issue.sv
+$(call DEPS,issue): $(IS_DEPS)
+
+# Complete Stage
+CS_DEPS = verilog/complete_stage.sv verilog/ps.sv
+$(call DEPS,complete_stage): $(CS_DEPS)
+
+# Retire Stage
+RE_DEPS = verilog/re_stage.sv 
+$(call DEPS,retire_stage): $(RE_DEPS)
+
+# SQ
+SQ_DEPS = verilog/lsque.sv verilog/ps.sv
+$(call DEPS,SQ): $(SQ_DEPS)
 
 # RS
 RS_DEPS = verilog/rs.sv verilog/ps.sv
@@ -197,10 +250,6 @@ $(call DEPS,rs): $(RS_DEPS)
 map_table_DEPS = verilog/map_tables.sv
 $(call DEPS,map_table): $(map_table_DEPS)
 
-# Arch Map Table
-arch_maptable_DEPS = verilog/map_tables.sv
-$(call DEPS,arch_maptable): $(arch_maptable_DEPS)
-
 # ROB
 rob_DEPS = verilog/rob.sv
 $(call DEPS,rob): $(rob_DEPS)
@@ -209,29 +258,7 @@ $(call DEPS,rob): $(rob_DEPS)
 freelist_DEPS = verilog/freelist.sv
 $(call DEPS,freelist): $(freelist_DEPS)
 
-# Multiply FU
-fu_mult_DEPS = verilog/fu_mult.sv
-$(call DEPS,fu_mult): $(fu_mult_DEPS)
 
-# DCache
-dcache_DEPS = cache/dcache.sv cache/dcachemem.sv
-$(call DEPS,dcache): $(dcache_DEPS)
-
-# Branch FU
-branch_fu_DEPS = verilog/branch_fu.sv
-$(call DEPS,branch_fu): $(branch_fu_DEPS)
-
-# Branch Predictor
-bp_DEPS = verilog/branch_predictor.sv
-$(call DEPS,bp): $(bp_DEPS)
-
-# SQ
-SQ_DEPS = verilog/lsque.sv verilog/ps.sv
-$(call DEPS,SQ): $(SQ_DEPS)
-
-# LS
-ls_DEPS = verilog/fu_alu.sv verilog/fu_load.sv verilog/lsque.sv verilog/ps.sv
-$(call DEPS,ls): $(ls_DEPS)
 
 # This allows you to use the following make targets:
 # make <module>.pass   <- greps for "@@@ Passed" or "@@@ Incorrect" in the output
@@ -282,11 +309,20 @@ $(TESTED_MODULES:%=output/%.out) $(TESTED_MODULES:%=output/%.syn.out): output/%.
 
 # ---- Compiling Verilog ---- #
 
-# the normal simulation executable will run your testbench on simulated modules
-$(TESTED_MODULES:=.simv): %.simv: test/%_test.sv verilog/%.sv $(HEADERS)
+# Special case: Remove icache from general TESTED_MODULES
+NO_ICACHE_MODULES := $(filter-out icache, $(TESTED_MODULES))
+
+# General rule for all modules except icache
+$(NO_ICACHE_MODULES:=.simv): %.simv: test/%_test.sv verilog/%.sv $(HEADERS)
 	@$(call PRINT_COLOR, 5, compiling the simulation executable $@)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
 	$(VCS) $(filter-out $(HEADERS),$^) -o $@
+	@$(call PRINT_COLOR, 6, finished compiling $@)
+
+# Special compile rule for icache (needs +define+NO_PREFETCH)
+icache.simv: test/icache_test.sv verilog/icache.sv $(HEADERS)
+	@$(call PRINT_COLOR, 5, compiling icache without prefetch $@)
+	$(VCS) +define+NO_PREFETCH $(filter-out $(HEADERS),$^) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
 # this also generates many other files, see the tcl script's introduction for info on each of them
@@ -359,14 +395,13 @@ $(TESTED_MODULES:=.cov.verdi): %.cov.verdi: %.cov.vdb
 HEADERS = verilog/sys_defs.svh \
           verilog/ISA.svh
 
-TESTBENCH = test/testbench_fin.sv \
+TESTBENCH = test/pipeline_test.sv \
             test/mt-fl_sim.cpp \
             test/pipe_print.c \
             test/mem.sv \
             test/cache_simv.cpp
 
 SOURCES = verilog/dispatch.sv \
-		verilog/issue.sv \
 		verilog/pipeline.sv \
 		verilog/complete_stage.sv \
 		verilog/re_stage.sv \
@@ -377,6 +412,7 @@ SOURCES = verilog/dispatch.sv \
 		verilog/fu_alu.sv \
 		verilog/fu_load.sv \
 		verilog/fu_mult.sv \
+		verilog/execution_stage.sv\
 		verilog/lsque.sv \
 		verilog/rob.sv \
 		verilog/freelist.sv \
@@ -384,12 +420,11 @@ SOURCES = verilog/dispatch.sv \
 		verilog/map_tables.sv \
 		verilog/branch_fu.sv \
 		verilog/branch_predictor.sv \
-		verilog/issue_fifo.sv \
+		verilog/issue.sv \
 		verilog/prefetch.sv \
-		cache/icache.sv \
-		cache/dcache.sv \
-		cache/dcachemem.sv \
-		cache/cachemem.sv
+		verilog/icache.sv \
+		verilog/dcache.sv \
+		verilog/icachemem.sv
 
 
 SYNTH_FILES = synth/pipeline.vg \

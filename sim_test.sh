@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Comparing ground truth outputs to new processor"
-cd /user/stud/fall24/yj2848/EE4824/Final_proj_test_our_code
+cd .
 
 # Clean up previous outputs
 make nuke
