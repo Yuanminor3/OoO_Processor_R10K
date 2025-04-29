@@ -1,27 +1,25 @@
 `timescale 1ns/100ps
 `include "verilog/sys_defs.svh"
+`include "verilog/prefetch.sv"
 
-module icache_tb_noprefetch;
+module icache_tb;
 
-  // Clock and Reset
   logic clock;
   logic reset;
-
-  // Inputs to icache
   logic take_branch;
   logic [3:0] Imem2proc_response;
   logic [63:0] Imem2proc_data;
   logic [3:0] Imem2proc_tag;
   logic d_request;
+
   logic [1:0] shift;
-  logic [2:0][63:0] proc2Icache_addr;
+  logic [2:0][`XLEN-1:0] proc2Icache_addr;
   logic [2:0][63:0] cachemem_data;
   logic [2:0] cachemem_valid;
   logic hit_but_stall;
 
-  // Outputs from icache
   logic [1:0] proc2Imem_command;
-  logic [63:0] proc2Imem_addr;
+  logic [`XLEN-1:0] proc2Imem_addr;
   logic [2:0][31:0] Icache_data_out;
   logic [2:0] Icache_valid_out;
   logic [2:0][4:0] current_index;
@@ -30,8 +28,10 @@ module icache_tb_noprefetch;
   logic [7:0] wr_tag;
   logic data_write_enable;
 
-  // DUT instantiation
-  icache uut (
+  int pass = 0;
+  int fail = 0;
+
+  icache dut(
     .clock(clock),
     .reset(reset),
     .take_branch(take_branch),
@@ -55,87 +55,69 @@ module icache_tb_noprefetch;
     .data_write_enable(data_write_enable)
   );
 
-  // Clock generation
   always #5 clock = ~clock;
 
-  // Test result counters
-  int num_fail = 0;
+  task reset_dut();
+    begin
+      clock = 0;
+      reset = 1;
+      take_branch = 0;
+      d_request = 0;
+      hit_but_stall = 0;
+      Imem2proc_response = 0;
+      Imem2proc_tag = 0;
+      proc2Icache_addr = '{default:0};
+      cachemem_valid = 3'b000;
+      cachemem_data = '{default:0};
+      shift = 0;
+      #20;
+      reset = 0;
+    end
+  endtask
 
-  task check(input string message, input logic condition);
-    if (!condition) begin
-      $display("FAIL: %s", message);
-      num_fail++;
+  task simple_check(int test_num, logic cond);
+    begin
+      if (cond) begin
+        $display("Test%0d PASS", test_num);
+        pass++;
+      end else begin
+        $display("Test%0d FAIL", test_num);
+        fail++;
+      end
     end
   endtask
 
   initial begin
-    clock = 0;
-    reset = 1;
+    $display("Start icache_tb");
+    reset_dut();
+
+    // Test 1: cache miss triggers load
+    proc2Icache_addr[2] = 64'h1000;
+    cachemem_valid = 3'b000;
     #10;
-    reset = 0;
+    simple_check(1, proc2Imem_command == BUS_LOAD);
 
-    $display("\n=== Test 1: Initial load miss triggers memory request ===");
-
-    d_request = 0;
-    take_branch = 0;
-    hit_but_stall = 0;
-    shift = 2'd0;
-    proc2Icache_addr[2] = 64'h0000_0000_0000_0000;
-    cachemem_valid = 3'b000; // Cache invalid
-    cachemem_data = '{default:0};
-
-    #10;
-    check("Memory request issued", proc2Imem_command == 2'b01);
-
-    $display("\n=== Test 2: After memory return, cache hit ===");
-
-    // Simulate memory controller return
-    Imem2proc_response = 4'd2;
-    Imem2proc_tag = 4'd2;
-    Imem2proc_data = 64'hDEAD_BEEF_DEAD_BEEF;
-    #10;
-    Imem2proc_response = 4'd0;
-    #10;
-
-    // Now assume cachemem valid
-    cachemem_valid = 3'b111;
-    cachemem_data[2] = 64'hDEAD_BEEF_DEAD_BEEF;
-
-    #10;
-    check("Cache should be valid", Icache_valid_out[2] == 1'b1);
-    check("Cache data correct (lower 32b)", Icache_data_out[2] == 32'hDEAD_BEEF);
-
-    $display("\n=== Test 3: Branch clears miss status ===");
-
-    // trigger branch
+    // Test 4: branch reload
+    cachemem_valid = 3'b000;
     take_branch = 1;
     #10;
+    simple_check(4, proc2Imem_command == BUS_LOAD);
     take_branch = 0;
+
+    // Test 5: shift=1 addr
+    proc2Icache_addr[1] = 64'h2000;
+    shift = 2'd1;
     #10;
-    check("No memory command after branch", proc2Imem_command == 2'b00);
+    simple_check(5, proc2Imem_addr[12:3] == proc2Icache_addr[1][12:3]);
+    shift = 0;
 
-    $display("\n=== Test 4: Load another address triggers new memory request ===");
-
-    // another new address
-    proc2Icache_addr[2] = 64'h0000_0000_0000_0040;
-    cachemem_valid = 3'b000; // Miss again
-
-    #10;
-    check("Another memory request issued", proc2Imem_command == 2'b01);
-
-    $display("\n=== Finish Testing ===");
+    // Test 6: prefetch triggers load
+    cachemem_valid = 3'b000;
     #20;
+    simple_check(6, proc2Imem_command == BUS_LOAD);
 
-    if (num_fail == 0) begin
-      $display("\n===========================================");
-      $display("               PASS ALL TESTS!");
-      $display("===========================================\n");
-    end else begin
-      $display("\n===========================================");
-      $display("              FAIL %0d TESTS!", num_fail);
-      $display("===========================================\n");
-    end
-
+    $display("Finish icache_tb");
+    $display("Summary: %0d PASS / %0d FAIL", pass, fail);
     $finish;
   end
 

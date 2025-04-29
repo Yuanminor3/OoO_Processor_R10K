@@ -309,20 +309,11 @@ $(TESTED_MODULES:%=output/%.out) $(TESTED_MODULES:%=output/%.syn.out): output/%.
 
 # ---- Compiling Verilog ---- #
 
-# Special case: Remove icache from general TESTED_MODULES
-NO_ICACHE_MODULES := $(filter-out icache, $(TESTED_MODULES))
-
-# General rule for all modules except icache
-$(NO_ICACHE_MODULES:=.simv): %.simv: test/%_test.sv verilog/%.sv $(HEADERS)
+# the normal simulation executable will run your testbench on simulated modules
+$(TESTED_MODULES:=.simv): %.simv: test/%_test.sv verilog/%.sv $(HEADERS)
 	@$(call PRINT_COLOR, 5, compiling the simulation executable $@)
 	@$(call PRINT_COLOR, 3, NOTE: if this is slow to startup: run '"module load vcs verdi synopsys-synth"')
 	$(VCS) $(filter-out $(HEADERS),$^) -o $@
-	@$(call PRINT_COLOR, 6, finished compiling $@)
-
-# Special compile rule for icache (needs +define+NO_PREFETCH)
-icache.simv: test/icache_test.sv verilog/icache.sv $(HEADERS)
-	@$(call PRINT_COLOR, 5, compiling icache without prefetch $@)
-	$(VCS) +define+NO_PREFETCH $(filter-out $(HEADERS),$^) -o $@
 	@$(call PRINT_COLOR, 6, finished compiling $@)
 
 # this also generates many other files, see the tcl script's introduction for info on each of them
@@ -396,7 +387,6 @@ HEADERS = verilog/sys_defs.svh \
           verilog/ISA.svh
 
 TESTBENCH = test/pipeline_test.sv \
-            test/mt-fl_sim.cpp \
             test/pipe_print.c \
             test/mem.sv \
             test/cache_simv.cpp
