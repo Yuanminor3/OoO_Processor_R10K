@@ -160,7 +160,7 @@ To test all programs in the `programs/` folder at once:
 
 ### Usage
 
-You **must** provide the clock period as a **single-digit decimal** (e.g., `15.0`), otherwise the script will exit with an error.
+You **must** provide the clock period(ns) as a **single-digit decimal** (e.g., `15.0`), otherwise the script will exit with an error.
 ```bash
 sh get_cpi.sh 15.1
 ```
