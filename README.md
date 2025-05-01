@@ -31,8 +31,8 @@ The design includes key components such as fetch, dispatch, issue, functional un
 ## 🏆 Project Results
 
 ### Clock Period in `Makefile` (default: 15ns)
-- simulation (Minimum Clock: **11.2ns**):   Sim Total Passed 33 out of 33
-- synthesis (Minimum Clock: **11.ns**):   Syn Total Passed 33 out of 33
+- Simulation (Minimum Clock: **11.2ns**):   Sim Total Passed 33 out of 33
+- Synthesis (Minimum Clock: **11.ns**):   Syn Total Passed 33 out of 33
 ### Metrics
 - **Average CPI** = 2.826372
 - **Average TPI** = 31.655366 ns
