@@ -32,7 +32,7 @@ The design includes key components such as fetch, dispatch, issue, functional un
 - simulation (Minimum Clock: XXXns):   Sim Total Passed **33 out of 33**
 - synthesis (Minimum Clock: XXXns):   Syn Total Passed **33 out of 33**
 
-## ⏰ Clock Period (default: 250ns)
+## ⏰ Clock Period (default: 15ns)
 
 - Adjust it in `Makefile`
 
