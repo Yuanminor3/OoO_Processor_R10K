@@ -157,7 +157,7 @@ To test all programs in the `programs/` folder at once:
    ```
 ---
 
-## 🔍 CPI and TPI Extraction Script
+## 📊 CPI and TPI Extraction Script
 
 ### Usage
 
