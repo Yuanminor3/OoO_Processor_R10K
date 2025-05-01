@@ -1,4 +1,4 @@
-`define TEST_MODE
+
 `ifndef __MULT_SV__
 `define __MULT_SV__
 

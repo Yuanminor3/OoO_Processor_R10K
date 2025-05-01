@@ -40,7 +40,6 @@ always_comb begin
     end
 end
 
-
 assign inst_count = retire_valid;
 
 logic stop_retire;

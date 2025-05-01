@@ -1,6 +1,4 @@
-`define TEST_MODE
-// `define RS_ALLOCAfTE_DEBUG
-// `define IS_DEBUG
+
 `ifndef __RS_V__
 `define __RS_V__
 
@@ -23,20 +21,10 @@ module RS(
     // to dispatch
     output logic [2:0]          struct_stall    // if high, stall corresponding dispatch, dependent on fu_req
 
-`ifdef TEST_MODE
-    , output RS_IN_PACKET [`RSW-1:0] rs_entries_display
-`endif
-
-`ifdef IS_DEBUG
-    , input RS_IN_PACKET [`RSW-1:0] rs_entries_debug
-`endif 
 );
 
 /* The struct array that stores all RS entries */
 RS_IN_PACKET [`RSW-1:0]        rs_entries;
-`ifdef TEST_MODE
-    assign rs_entries_display = rs_entries;
-`endif
 
 /* select next entry to allocate */
 logic [2:0][`RSW-1:0] new_entry;    // one hot coding

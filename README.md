@@ -1,12 +1,5 @@
 # CSEE W4824: Computer Architecture Final Project
 
-```
-TODO 1: Rename + delete unused part of the test mode parameters? 
-TODO 2: Other Features
-TODO 3: architecture.png (need replace below)
-TODO 4: Find minimum clk for sim and syn (need record below)
-```
-
 ## 📋 Team Information
 - **Columbia University - Spring 2025**
 - **Team Number**: Group 6
@@ -162,3 +155,29 @@ To test all programs in the `programs/` folder at once:
    make nuke
    ```
 ---
+
+## 🔍 CPI and TPI Extraction Script
+
+### Usage
+
+You **must** provide the clock period as a **single-digit decimal** (e.g., `15.0`), otherwise the script will exit with an error.
+```bash
+sh get_cpi.sh 15.1
+```
+### How
+The script extracts the following performance metrics from each `.out` file:
+- **Cycles**: Total cycles executed before system halt.
+- **Instructions**: Number of instructions executed.
+- **CPI** (Cycles Per Instruction): Reported by the simulation.
+- **TPI** (Time Per Instruction): Computed as `CPI × Clock_Period` in nanoseconds.
+
+If the instruction count is zero, both CPI and TPI will be recorded as `0.000000` to avoid division errors.
+
+After processing all files, the script appends a final row labeled **`Average`**, containing:
+- The total cycles,
+- The total instructions,
+- The average CPI (`total_cycles / total_instrs`),
+- The average TPI.
+
+### Cleaning Up
+Run `make nuke` will delete `cpi_report.csv` file.

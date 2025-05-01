@@ -21,12 +21,6 @@ module prefetch (
     output logic [7:0]          prefetch_tag,
     output logic                prefetch_wr_enable
 
-    `ifdef  TEST_MODE
-    , output logic [7:0]                 pref_count_display
-    , output logic [`PREF-1:0][3:0]      mem_tag_display
-    , output logic [`PREF-1:0][4:0]      store_prefetch_index_display
-    , output logic [`PREF-1:0][7:0]      store_prefetch_tag_display
-    `endif
 );
 
     // Truly private signals renamed
@@ -54,13 +48,6 @@ module prefetch (
     wire enable_pf = ~enough_pf & ~branch;
     wire reject_mem = enable_pf && ~give_way && (Imem2pref_response == 0);
     wire valid_resp = enable_pf & ~give_way & ~reject_mem;
-
-    `ifdef TEST_MODE
-    assign mem_tag_display = mem_tag;
-    assign pref_count_display = count_pf;
-    assign store_prefetch_index_display = store_prefetch_index;
-    assign store_prefetch_tag_display = store_prefetch_tag;
-    `endif
 
     assign prefetch_command = enable_pf ? BUS_LOAD : BUS_NONE;
 

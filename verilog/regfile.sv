@@ -2,9 +2,6 @@
 //                                                                     //
 //   Modulename :  regfile.v                                           //
 //                                                                     //
-//  Description :  This module creates the Regfile used by the ID and  // 
-//                 WB Stages of the Pipeline.                          //
-//                                                                     //
 /////////////////////////////////////////////////////////////////////////
 
 `ifndef __REGFILE_V__

@@ -1,6 +1,16 @@
 
 `timescale 1ns/100ps
-`define TEST_MODE    // Keep consistency with pipeline
+
+//-----------------------------------------------------------------------------
+// Tournament Branch Predictor (Local + GShare Hybrid)
+//-----------------------------------------------------------------------------
+// This predictor uses two parallel 2-bit predictors:
+//   1) Local predictor, indexed by PC low bits (per‐branch history).
+//   2) Global (GShare) predictor, indexed by PC low bits XOR’d with GHR.
+// A 2-bit chooser table records which predictor has been more accurate
+// for each PC index, and selects between local or global at fetch time.
+// GHR (Global History Register) keeps the last `BP` branch outcomes.
+//-----------------------------------------------------------------------------
 
 module branch_predictor(
     input                       clock,
@@ -24,11 +34,6 @@ module branch_predictor(
     output logic [2:0]          predict_found,
     output logic [2:0]          predict_direction,
     output logic [2:0][`XLEN-1:0] predict_pc
-
-    `ifdef TEST_MODE
-    // Connected in pipeline instantiation for waveform/display
-    , output BP_ENTRY_PACKET [`BPW-1:0] bp_entries_display
-    `endif  
 );
 
     // ----------------------------------------------------------------
@@ -48,19 +53,6 @@ module branch_predictor(
 
     // chooser update comparison
     logic                      local_correct, global_correct;
-
-    // ----------------------------------------------------------------
-    // Export local_table for waveform/display under TEST_MODE
-    // ----------------------------------------------------------------
-
-    `ifdef TEST_MODE
-    genvar gi;
-    generate
-      for (gi = 0; gi < `BPW; gi = gi + 1) begin : GEN_BP_DISPLAY
-        assign bp_entries_display[gi] = local_table[gi];
-      end
-    endgenerate
-    `endif 
 
     // ----------------------------------------------------------------
     // 1) Lookup: manually unroll for three fetch slots

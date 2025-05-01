@@ -2,8 +2,6 @@
 //                                                                      //
 //   Modulename :  branch_fu.sv                                         //
 //                                                                      //
-//  Description :  Combinational branch functional unit                 //
-//                                                                      //
 //////////////////////////////////////////////////////////////////////////
 `ifndef __BRANCH_FU_SV__
 `define __BRANCH_FU_SV__

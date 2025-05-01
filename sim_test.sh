@@ -7,7 +7,7 @@ cd .
 make nuke
 
 # Feel free to change the program name here
-program=dft
+program=outer_product
 echo "Running $program"
 
 # Compile and run the program

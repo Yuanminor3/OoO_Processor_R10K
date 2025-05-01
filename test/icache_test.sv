@@ -101,20 +101,20 @@ module icache_tb;
     cachemem_valid = 3'b000;
     take_branch = 1;
     #10;
-    simple_check(4, proc2Imem_command == BUS_LOAD);
+    simple_check(2, proc2Imem_command == BUS_LOAD);
     take_branch = 0;
 
     // Test 5: shift=1 addr
     proc2Icache_addr[1] = 64'h2000;
     shift = 2'd1;
     #10;
-    simple_check(5, proc2Imem_addr[12:3] == proc2Icache_addr[1][12:3]);
+    simple_check(3, proc2Imem_addr[12:3] == proc2Icache_addr[1][12:3]);
     shift = 0;
 
     // Test 6: prefetch triggers load
     cachemem_valid = 3'b000;
     #20;
-    simple_check(6, proc2Imem_command == BUS_LOAD);
+    simple_check(4, proc2Imem_command == BUS_LOAD);
 
     $display("Finish icache_tb");
     $display("Summary: %0d PASS / %0d FAIL", pass, fail);

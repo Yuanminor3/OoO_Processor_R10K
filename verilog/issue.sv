@@ -1,4 +1,4 @@
-`define TEST_MODE
+
 `ifndef __ISSUE_V__
 `define __ISSUE_V__
 `timescale 1ns/100ps
@@ -87,19 +87,11 @@ module fu_FIFO_3 #(parameter FIFO_DEPTH=`IS_FIFO_DEPTH)(
     //output logic                full,
     output logic                almost_full,
     output ISSUE_FU_PACKET[2:0] fu_pckt_out
-/*
-    `ifdef TEST_MODE
-    , output ISSUE_FU_PACKET [FIFO_DEPTH-1:0] fifo_display
-    `endif */
+
 );
 /* sync registers */
 ISSUE_FU_PACKET [FIFO_DEPTH-1:0] fifo_entries;
 logic [$clog2(FIFO_DEPTH)-1:0] tail;
-
-/*
-`ifdef TEST_MODE
-assign fifo_display = fifo_entries;
-`endif */
 
 /* write count and EN */
 logic [2:0] wr_EN;

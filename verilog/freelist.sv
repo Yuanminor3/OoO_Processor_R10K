@@ -1,5 +1,4 @@
-`define TEST_MODE
-// `define RS_ALLOCATE_DEBUG
+
 `ifndef __FREELIST_V__
 `define __FREELIST_V__
 
@@ -17,20 +16,14 @@ module Freelist(
     output logic [2:0][`PR-1:0]      FreeReg,       // Allocated free physical registers
     output logic [`ROB-1:0]          Head,          // Free list head pointer (used in retire)
     output logic [2:0]               FreeRegValid,  // Free register availability for each dispatch slot
-    output logic [4:0]               fl_distance    // distance from tail to head, i.e. ava number
+    output logic [`ROB-1:0]          fl_distance    // distance from tail to head, i.e. ava number
 
-    `ifdef TEST_MODE
-        , output logic [31:0][`PR-1:0] array_display // For debug: free list contents
-        , output logic [4:0]           head_display  // For debug: head pointer
-        , output logic [4:0]           tail_display  // For debug: tail pointer
-        , output logic                 empty_display
-    `endif 
 );
 
     // Internal registers
     logic [`ROB-1:0] head, head_next;
     logic [`ROB-1:0] tail, tail_next;
-    logic [31:0][`PR-1:0] array, array_next;
+    logic [2**`ROB-1:0][`PR-1:0] array, array_next;
     logic full, full_next;
     logic [`ROB-1:0] head_offset[3];
 
@@ -66,8 +59,8 @@ module Freelist(
     end
 
     // Compute available free register slots
-    logic [5:0] available_num;
-    assign available_num = full ? 32 : (tail - head) & 5'h1F;
+    logic [`ROB:0] available_num;
+    assign available_num = full ? 2**`ROB : (tail - head) & {`ROB{1'b1}};
 
 // Determine FreeRegValid based on number of free slots
 always_comb begin
@@ -126,8 +119,8 @@ end
             head <= `SD 0;
             tail <= `SD 0;
             full <= `SD 1;
-            for (int i = 0; i < 32; i++) begin
-                array[i] <= `SD i + 32; // Initialize physical registers
+            for (int i = 0; i < 2**`ROB; i++) begin
+                array[i] <= `SD i + 2**`ROB; // Initialize physical registers
             end
         end
         else if (BPRecoverEN) begin
@@ -144,10 +137,9 @@ end
         end
     end
 
-    // Debug outputs
-    assign fl_distance = available_num[4:0];
+    assign fl_distance = available_num[`ROB-1:0];
     assign Head = head;
-
+    // Debug outputs
     assign array_display = array;
     assign head_display = head;
     assign tail_display = tail; 

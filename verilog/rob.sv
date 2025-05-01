@@ -1,6 +1,4 @@
 
-`define TEST_MODE
-// `define RS_ALLOCATE_DEBUG
 `ifndef __ROB_V__
 `define __ROB_V__
 
@@ -23,15 +21,9 @@ module ROB(
     input  [2:0] sq_stall,                // Store queue stall signals
     // to dispatch
     output logic [2:0][`ROB-1:0] dispatch_index, // Allocated ROB indices for new entries
-    output logic [2:0] struct_stall,             // Structural hazard stalls
+    output logic [`ROB:0] space_left,
     // to retire
     output ROB_ENTRY_PACKET[2:0] retire_entry   // Retired entries (up to 3 per cycle)
-
-    `ifdef TEST_MODE
-    , output ROB_ENTRY_PACKET [`ROBW-1:0] rob_entries_display
-    , output [`ROB-1:0] head_display
-    , output [`ROB-1:0] tail_display
-    `endif 
 );
 
 // ROB storage array
@@ -52,16 +44,6 @@ logic empty, empty_temp, empty_next;
 assign input_start_incre1 = input_start + 1;
 assign input_start_incre2 = input_start + 2;
 assign input_start_incre3 = input_start + 3;
-logic [`ROB:0] space_left;
-
-
-// Debug/Test outputs
-`ifdef TEST_MODE
-assign rob_entries_display = rob_entries;
-assign head_display = head;
-assign tail_display = tail;
-`endif
-
 
 // Dispatch count based on valid inputs
 // tail increment update logic
@@ -73,10 +55,7 @@ assign tail_incre = (rob_in[0].valid & rob_in[1].valid & rob_in[2].valid) ? 3 :
 // output structural stall logic
 assign head_tail_diff = tail - head;
 assign space_left = (empty) ? 32 : 31 - head_tail_diff + head_incre;
-assign struct_stall = (space_left == 0) ? 3'b111 :
-                      (space_left == 1) ? 3'b011 :
-                      (space_left == 2) ? 3'b001 :
-                      3'b000;
+
 
 /* -------------------- Head Pointer Management -------------------- */
 // Calculate how many completed instructions at the head can be retired
@@ -111,7 +90,6 @@ always_comb begin
         is_store[i] = (i == 0) ? rob_entries[head].is_store
                                      : rob_entries[head_offset[i]].is_store;
     end
-
 
 	head_incre = head_incre_temp;  // set by default, if no sq_stall && store insn, no change
 	priority case (sq_stall)
@@ -319,19 +297,34 @@ end
 /* -------------------- ROB Register Update -------------------- */
 // Sequential logic: Update pointers and entries on clock edge
 always_ff @(posedge clock) begin
-    if (reset | BPRecoverEN) begin
-		head <= `SD 0;
-		tail <= `SD 0;
-		empty <= `SD 1;
-        rob_entries <= `SD 0; 
-	end	 
-    else begin 
+    if (reset) begin
+        head <= `SD 0;
+        tail <= `SD 0;
+        empty <= `SD 1;
+        rob_entries <= `SD 0;
+    end
+    else if (BPRecoverEN) begin
+        head <= `SD 0;
+        tail <= `SD 0;
+        empty <= `SD 1;
+
+        // Clear only entries between tail and head
+        for (int i = 0; i < `ROBW; i++) begin
+            if (tail >= head) begin // Normal case
+                if (i >= head && i < tail) rob_entries[i] <= `SD 0;
+            end
+            else if (i >= head || i < tail) begin // Wrap-around case
+                    rob_entries[i] <= `SD 0;
+            end
+        end
+    end
+    else begin
         rob_entries <= `SD rob_entries_next;
-		head <= `SD head_next;
-		tail <= `SD tail_next;
-		empty <= `SD empty_next;
-	end
-end
+        head <= `SD head_next;
+        tail <= `SD tail_next;
+        empty <= `SD empty_next;
+    end
+end 
 
 endmodule
 `endif

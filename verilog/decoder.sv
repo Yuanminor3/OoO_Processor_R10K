@@ -1,4 +1,4 @@
-`define TEST_MODE
+
 `timescale 1ns/100ps
 `include "verilog/sys_defs.svh"
 `include "verilog/ISA.svh"

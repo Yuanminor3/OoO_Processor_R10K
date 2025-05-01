@@ -5,8 +5,6 @@
 /* ====== Global Defines ====== */
 `define MAX_CYCLE 5000000
 `define TEST_MODE 
-`define DIS_DEBUG
-`define CACHE_MODE
 
 /* ====== Import DPI-C Functions ====== */
 
@@ -55,76 +53,6 @@ logic [2:0] inst_count;
 /* ====== Debug and Display Signals ====== */
 `ifdef TEST_MODE
 
-// IF to Dispatch
-// ID stage output
-IF_ID_PACKET [2:0]         dis_in_display;
-ROB_ENTRY_PACKET [2:0]     dis_rob_packet_display;
-logic [2:0]                dis_stall_display;
-
-// Reservation Station
-RS_IN_PACKET [2:0]         dis_rs_packet_display;
-RS_IN_PACKET [`RSW-1:0]    rs_entries_display;
-RS_S_PACKET [2:0]          rs_out_display;
-logic [2:0]                rs_stall_display;
-
-// Map Table
-logic [31:0][`PR-1:0]      map_array_display;
-logic [31:0]               ready_array_display;
-logic [31:0][`PR-1:0]      archi_map_display;
-
-// Issue Stage
-RS_S_PACKET [2:0]          is_in_display;
-FU_FIFO_PACKET             fu_fifo_stall_display;
-ISSUE_FU_PACKET [`IS_FIFO_DEPTH-1:0] alu_fifo_display;
-ISSUE_FU_PACKET [`IS_FIFO_DEPTH-1:0] mult_fifo_display;
-ISSUE_FU_PACKET [`IS_FIFO_DEPTH-1:0] br_fifo_display;
-ISSUE_FU_PACKET [`IS_FIFO_DEPTH-1:0] ls_fifo_display;
-
-// Functional Units
-ISSUE_FU_PACKET [2**`FU-1:0] fu_in_display;
-FU_STATE_PACKET             fu_ready_display;
-FU_STATE_PACKET             fu_finish_display;
-FU_COMPLETE_PACKET [2**`FU-1:0] fu_packet_out_display;
-
-// Store Queue
-SQ_ENTRY_PACKET [0:2**`LSQ-1] sq_display;
-logic [`LSQ-1:0]              head_dis;
-logic [`LSQ-1:0]              tail_dis;
-logic [`LSQ:0]                filled_num_dis;
-SQ_ENTRY_PACKET [2**`LSQ-1:0] older_stores;
-logic [2**`LSQ-1:0]           older_stores_valid;
-LOAD_SQ_PACKET [1:0]          load_sq_pckt_display;
-logic [2:0]                   sq_stall_display;
-
-// Freelist
-logic [2:0]                   free_pr_valid_display;
-
-// Complete Stage
-CDB_T_PACKET                  cdb_t_display;
-logic [2:0][`XLEN-1:0]        wb_value_display;
-FU_COMPLETE_PACKET [2:0]      complete_pckt_in_display;
-logic [2**`FU-1:0]            complete_stall_display;
-
-// Reorder Buffer
-ROB_ENTRY_PACKET [`ROBW-1:0]  rob_entries_display;
-logic [`ROB-1:0]              head_display;
-logic [`ROB-1:0]              tail_display;
-logic [2:0]                   rob_stall_display;
-
-// Physical Register File
-logic [2**`PR-1:0][`XLEN-1:0] pr_display;
-
-// Architecture Map Table
-logic [2:0][`PR-1:0]          map_ar_pr;
-logic [2:0][4:0]              map_ar;
-logic [2:0]                   RetireEN;
-
-// Freelist Internal
-logic [31:0][`PR-1:0]         fl_array_display;
-logic [4:0]                   fl_head_display;
-logic [4:0]                   fl_tail_display;
-logic                         fl_empty_display;
-
 // Data Cache
 logic [1:0][15:0][63:0]       cache_data_disp;
 logic [1:0][15:0][8:0]        cache_tags_disp;
@@ -138,16 +66,6 @@ logic [`MHSRS-1:0] tail_pointer;
 
 `endif
 
-`ifdef DIS_DEBUG
-// Debug Signals
-IF_ID_PACKET [2:0]          if_d_packet_debug;
-logic [2:0]                 dis_new_pr_en_out;
-logic [2:0]                 free_pr_valid_debug;
-logic [2:0][`PR-1:0]        free_pr_debug;
-logic [2:0]                 rob_stall_debug;
-FU_STATE_PACKET             fu_ready_debug;
-CDB_T_PACKET                cdb_t_debug;
-`endif
 
 /* ====== Cache Simulation Signals ====== */
 SQ_ENTRY_PACKET [2:0]       cache_wb_sim;
@@ -173,9 +91,6 @@ mem memory(
     .clk(clock),
     .proc2mem_addr(proc2Imem_addr),
     .proc2mem_data(proc2Imem_data),
-`ifndef CACHE_MODE
-    .proc2mem_size(DOUBLE),
-`endif
     .proc2mem_command(proc2Imem_command),
     .mem2proc_response(Imem2proc_response),
     .mem2proc_data(Imem2proc_data),
@@ -196,72 +111,6 @@ pipeline core(
     .inst_count(inst_count)
 
 `ifdef TEST_MODE
-    // ID stage
-    , .dis_in_display(dis_in_display)
-    , .dis_rob_packet_display(dis_rob_packet_display)
-    , .dis_stall_display(dis_stall_display)
-
-    // RS stage
-    , .dis_rs_packet_display(dis_rs_packet_display)
-    , .rs_entries_display(rs_entries_display)
-    , .rs_out_display(rs_out_display)
-    , .rs_stall_display(rs_stall_display)
-
-    // Map Table
-    , .map_array_disp(map_array_display)
-    , .ready_array_disp(ready_array_display)
-    , .archi_map_display(archi_map_display)
-
-    // IS stage
-    , .is_in_display(is_in_display)
-    , .fu_fifo_stall_display(fu_fifo_stall_display)
-    , .alu_fifo_display(alu_fifo_display)
-    , .mult_fifo_display(mult_fifo_display)
-    , .br_fifo_display(br_fifo_display)
-    , .ls_fifo_display(ls_fifo_display)
-
-    // FU stage
-    , .fu_in_display(fu_in_display)
-    , .fu_ready_display(fu_ready_display)
-    , .fu_finish_display(fu_finish_display)
-    , .fu_packet_out_display(fu_packet_out_display)
-
-    // SQ stage
-    , .sq_display(sq_display)
-    , .head_dis(head_dis)
-    , .tail_dis(tail_dis)
-    , .filled_num_dis(filled_num_dis)
-    , .older_stores(older_stores)
-    , .older_stores_valid(older_stores_valid)
-    , .load_sq_pckt_display(load_sq_pckt_display)
-    , .sq_stall_display(sq_stall_display)
-
-    // Complete stage
-    , .cdb_t_display(cdb_t_display)
-    , .wb_value_display(wb_value_display)
-    , .complete_pckt_in_display(complete_pckt_in_display)
-    , .complete_stall_display(complete_stall_display)
-
-    // ROB
-    , .rob_entries_display(rob_entries_display)
-    , .head_display(head_display)
-    , .tail_display(tail_display)
-    , .rob_stall_display(rob_stall_display)
-
-    // Freelist
-    , .fl_array_display(fl_array_display)
-    , .fl_head_display(fl_head_display)
-    , .fl_tail_display(fl_tail_display)
-    , .fl_empty_display(fl_empty_display)
-    , .free_pr_valid_display(free_pr_valid_display)
-
-    // PR
-    , .pr_display(pr_display)
-
-    // Archi Map Table
-    , .map_ar_pr_disp(map_ar_pr)
-    , .map_ar_disp(map_ar)
-    , .RetireEN_disp(RetireEN)
 
     // Data Cache
     , .cache_data_disp(cache_data_disp)
@@ -272,19 +121,8 @@ pipeline core(
     , .head_pointer(head_pointer)
     , .issue_pointer(issue_pointer)
     , .tail_pointer(tail_pointer)
-`endif // TEST_MODE
+`endif 
 
-`ifdef DIS_DEBUG
-    , .if_d_packet_debug(if_d_packet_debug)
-    , .dis_new_pr_en_out(dis_new_pr_en_out)
-`endif
-
-`ifdef CACHE_SIM
-    , .cache_wb_sim(cache_wb_sim)
-    , .cache_read_addr_sim(cache_read_addr_sim)
-    , .cache_read_data_sim(cache_read_data_sim)
-    , .cache_read_start_sim(cache_read_start_sim)
-`endif
 );
 
 /* ===== Clock Generation ===== */

@@ -421,11 +421,9 @@ typedef struct packed {
 `define MEM_SIZE_IN_BYTES      (64*1024)
 `define MEM_64BIT_LINES        (`MEM_SIZE_IN_BYTES/8)
 
-//you can change the clock period to whatever, 10 is just fine
-`define VERILOG_CLOCK_PERIOD   13.1
-`define SYNTH_CLOCK_PERIOD     13.1 // Clock period for synth and memory latency
+`define VERILOG_CLOCK_PERIOD   `CLOCK_PERIOD
 
-`define MEM_LATENCY_IN_CYCLES (100.0/`SYNTH_CLOCK_PERIOD+0.49999)
+`define MEM_LATENCY_IN_CYCLES (100.0/`CLOCK_PERIOD+0.49999)
 // the 0.49999 is to force ceiling(100/period).  The default behavior for
 // float to integer conversion is rounding to nearest
 

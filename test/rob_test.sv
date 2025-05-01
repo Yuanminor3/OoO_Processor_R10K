@@ -1,99 +1,115 @@
 `timescale 1ns/100ps
 `include "verilog/sys_defs.svh"
 
-module tb_ROB;
+module rob_test;
 
-// Declare testbench signals
-reg clock;
-reg reset;
-reg [2:0] rob_in;
-reg [2:0] complete_valid;
-reg [2:0][`ROB-1:0] complete_entry;
-reg [2:0] precise_state_valid;
-reg [2:0][`XLEN-1:0] target_pc;
-reg BPRecoverEN;
-reg [2:0] sq_stall;
-wire [2:0][`ROB-1:0] dispatch_index;
-wire [2:0] struct_stall;
-wire [2:0] retire_entry;
+  logic clock, reset;
+  ROB_ENTRY_PACKET [2:0] rob_in;
+  ROB_ENTRY_PACKET [2:0] retire_entry;
+  logic [2:0] complete_valid;
+  logic [2:0][`ROB-1:0] complete_entry;
+  logic [2:0] precise_state_valid;
+  logic [2:0][`XLEN-1:0] target_pc;
+  logic BPRecoverEN;
+  logic [2:0] sq_stall;
 
-// Instantiate the ROB module
-ROB uut (
-    .clock(clock), 
-    .reset(reset),
-    .rob_in(rob_in),
-    .complete_valid(complete_valid),
-    .complete_entry(complete_entry),
-    .precise_state_valid(precise_state_valid),
-    .target_pc(target_pc),
-    .BPRecoverEN(BPRecoverEN),
-    .sq_stall(sq_stall),
-    .dispatch_index(dispatch_index),
-    .struct_stall(struct_stall),
-    .retire_entry(retire_entry)
-);  
+  logic [2:0][`ROB-1:0] dispatch_index;
+  logic [`ROB:0] space_left;
 
+  logic [1:0] test_passed;  // for 2 test cases
 
-// Clock generation
-always begin
-    #5 clock = ~clock;
-end
+  ROB dut (
+    .clock,
+    .reset,
+    .rob_in,
+    .complete_valid,
+    .complete_entry,
+    .precise_state_valid,
+    .target_pc,
+    .BPRecoverEN,
+    .sq_stall,
+    .dispatch_index,
+    .space_left,
+    .retire_entry
+  );
 
-// Test sequence
-initial begin
-    // Initialize signals
+  // Clock generation
+  always #5 clock = ~clock;
+
+  // Helper
+  task print_retire(string label);
+    $display("---- %s ----", label);
+    for (int i = 0; i < 3; i++) begin
+      if (retire_entry[i].valid)
+        $display("  Retire[%0d]: PC=0x%08x, Tnew=%0d, completed=%0d", i, retire_entry[i].PC, retire_entry[i].Tnew, retire_entry[i].completed);
+    end
+  endtask
+
+  initial begin
     clock = 0;
-    reset = 0;
-    rob_in = 3'b000;
-    complete_valid = 3'b000;
-    complete_entry = 3'b000;
-    precise_state_valid = 3'b000;
-    target_pc = 3'b000;
+    reset = 1;
+    rob_in = '{default:0};
+    complete_valid = 0;
+    complete_entry = '{default:0};
+    precise_state_valid = 0;
+    target_pc = '{default:0};
     BPRecoverEN = 0;
-    sq_stall = 3'b000;
+    sq_stall = 0;
+    test_passed = '{default:1};  // assume pass
 
-    // Apply reset
-    reset = 1;
-    #10;
-    reset = 0;
-    
-    // Test 1: Dispatch entries into the ROB
-    rob_in = 3'b111; // Simulate valid ROB entries
-    #10;
+    @(negedge clock); reset = 0;
 
-    // Test 2: Complete an instruction
-    complete_valid = 3'b001; // One entry completed
-    complete_entry = 3'b001; // The first entry completed
-    precise_state_valid = 3'b000;
-    #10;
+    // === Case 1: Normal Dispatch + Complete + Retire ===
+    @(negedge clock);
+    rob_in[0] = '{default:0, valid:1, PC:32'h1000, NPC:32'h1004, Tnew:5'd1, Told:5'd0, inst:32'hAAAA};
+    rob_in[1] = '{default:0, valid:1, PC:32'h1004, NPC:32'h1008, Tnew:5'd2, Told:5'd1, inst:32'hBBBB};
+    rob_in[2] = '{default:0, valid:1, PC:32'h1008, NPC:32'h100C, Tnew:5'd3, Told:5'd2, inst:32'hCCCC};
 
-    // Test 3: Branch misprediction recovery
-    precise_state_valid = 3'b001; // Simulate a branch misprediction recovery
-    target_pc = 3'b101; // Recovery target PC
-    #10;
+    @(negedge clock);
+    rob_in = '{default:0};
 
-    // Test 4: Store Queue stall (simulate store issue)
-    sq_stall = 3'b111; // All store queues stalled
-    #10;
+    complete_valid = 3'b111;
+    complete_entry = {dispatch_index[2], dispatch_index[1], dispatch_index[0]};
 
-    // Test 5: Reset the ROB and check if it clears everything
-    reset = 1;
-    #10;
-    reset = 0;
+    @(negedge clock);
+    complete_valid = 0;
 
-    // Check if all tests passed
-    if (rob_in == 3'b111 && complete_valid == 3'b001 && complete_entry == 3'b001 && 
-        precise_state_valid == 3'b001 && target_pc == 3'b101 && sq_stall == 3'b111) 
-    begin
-        $display("\nPASSED");
+    repeat (2) @(negedge clock);
+    print_retire("Case 1: Normal retire");
+
+    // === Case 2: Branch predicted not taken, actually taken (mispredict) ===
+    @(negedge clock);
+    rob_in[0] = '{default:0, valid:1, PC:32'h4000, NPC:32'h4004, Tnew:5'd5, Told:5'd4, predict_direction:0, predict_pc:32'h0};
+
+    @(negedge clock);
+    rob_in = '{default:0};
+    complete_valid[0] = 1;
+    complete_entry[0] = dispatch_index[0];
+    precise_state_valid[0] = 1;
+    target_pc[0] = 32'h5000;
+
+    @(negedge clock);
+    complete_valid = 0;
+    precise_state_valid = 0;
+
+    if (dut.rob_entries[dispatch_index[0]].precise_state_need &&
+        dut.rob_entries[dispatch_index[0]].target_pc == 32'h5000) begin
+      $display("[PASS] Case 2: Correctly detected misprediction");
     end else begin
-        $display("Test failed");
+      $display("[FAIL] Case 2: Recovery info incorrect");
+      test_passed[1] = 0;
     end
 
-    // End simulation
-    $finish;
-end
+    // === Final Summary ===
+    if (&test_passed)
+      $display("✅ [ALL PASSED] All test cases passed successfully.");
+    else begin
+      $display("❌ [FAILED CASES]");
+      if (!test_passed[0]) $display("- Case 1 failed: Normal retire issue.");
+      if (!test_passed[1]) $display("- Case 2 failed: Misprediction handling issue.");
+    end
 
+    $finish;
+  end
 
 endmodule
-

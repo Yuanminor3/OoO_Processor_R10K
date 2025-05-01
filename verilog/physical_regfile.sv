@@ -1,6 +1,5 @@
 `ifndef __PR_V__
 `define __PR_V__
-//`define TEST_MODE
 
 `timescale 1ns/100ps
 `include "verilog/sys_defs.svh"
@@ -14,17 +13,10 @@ module physical_regfile(
 
     output logic [2:0][`XLEN-1:0] read_out_1, read_out_2    // read data
 
-`ifdef TEST_MODE
-    , output logic [2**`PR-1:0][`XLEN-1:0] registers_display           
-`endif 
 );
 
 logic [2**`PR-1:0][`XLEN-1:0] registers;
 logic [2**`PR-1:0][`XLEN-1:0] registers_next;
-
-`ifdef TEST_MODE
-assign registers_display = registers;
-`endif 
 
 // Write 
 always_comb begin

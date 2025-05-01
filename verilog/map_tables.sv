@@ -1,4 +1,4 @@
-`define TEST_MODE 
+
 `include "verilog/sys_defs.svh"
 
 module map_table (
@@ -17,10 +17,6 @@ module map_table (
     output logic [2:0]          reg2_ready,        // Ready bit for reg2
     output logic [2:0][`PR-1:0] Told_out           // Old physical register mappings
 
-    `ifdef TEST_MODE
-    , output logic [31:0][`PR-1:0] map_array_disp  // Debug output: full map array
-    , output logic [31:0]          ready_array_disp // Debug output: full ready array
-    `endif 
 );
 
     // Main mapping and readiness state
@@ -33,12 +29,6 @@ module map_table (
 
     // Reset and recovery values
     logic [31:0][`PR-1:0] map_array_reset;
-
-    // Debug output assignment
-    `ifdef TEST_MODE
-    assign map_array_disp   = map_array;
-    assign ready_array_disp = ready_array;
-    `endif 
 
     // Compute reset state: identity mapping, all ready
     always_comb begin

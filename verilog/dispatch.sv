@@ -1,4 +1,4 @@
-`define TEST_MODE
+
 `ifndef __DISPATCH_V__
 `define __DISPATCH_V__
 
