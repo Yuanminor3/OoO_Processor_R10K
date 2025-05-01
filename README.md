@@ -35,7 +35,7 @@ The design includes key components such as fetch, dispatch, issue, functional un
 - Synthesis (Fastest Clock: **11.ns**):   syn Total Passed 33 out of 33
 ### Metrics
 - **Average CPI** = 2.826372
-- **Average TPI** = 31.655366 ns
+- **Average TPI** = ? ns
 
 ## 🧩 Module Testbench
 To test a specific module using its corresponding testbench located in the `test/XXX_test.sv` folder:
