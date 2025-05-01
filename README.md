@@ -31,11 +31,11 @@ The design includes key components such as fetch, dispatch, issue, functional un
 ## 🏆 Project Results
 
 ### Clock Period in `Makefile` (default: 15ns)
-- simulation (Minimum Clock: 11.2ns):   Sim Total Passed **33 out of 33**
-- synthesis (Minimum Clock: XXXns):   Syn Total Passed **33 out of 33**
+- simulation (Minimum Clock: **11.2ns**):   Sim Total Passed 33 out of 33
+- synthesis (Minimum Clock: **11.ns**):   Syn Total Passed 33 out of 33
 ### Metrics
-- Average CPI = 2.826372
-- Average TPI = 31.655366 ns
+- **Average CPI** = 2.826372
+- **Average TPI** = 31.655366 ns
 
 ## 🧩 Module Testbench
 To test a specific module using its corresponding testbench located in the `test/XXX_test.sv` folder:
