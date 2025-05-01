@@ -13,7 +13,7 @@
 
 ## 📚 Project Overview
 
-This project implements an out-of-order, 32-bit processor based on a 3-way scaled R10K microarchitecture.
+This project implements an **out-of-order, 32-bit processor based on a 3-way scaled R10K microarchitecture**.
 It supports the RV32IM ISA, featuring:
 - 3-way scalar pipeline
 - Advanced Branch Predictor
