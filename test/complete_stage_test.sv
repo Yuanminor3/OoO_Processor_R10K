@@ -63,7 +63,7 @@ module complete_stage_tb;
         #10;
 
         if (cs_cdb_broadcast.t2 == 5'h01 && cs_wb_data[2] == 32'h12345678 && cs_retire_valid[2]) begin
-            $display("✅ [PASS] ALU1 writeback correct: cs_cdb_broadcast.t2 = %h, cs_wb_data[2] = %h", cs_cdb_broadcast.t2, cs_wb_data[2]);
+            $display("✅ [ALL PASS] ALU1 writeback correct: cs_cdb_broadcast.t2 = %h, cs_wb_data[2] = %h", cs_cdb_broadcast.t2, cs_wb_data[2]);
         end else begin
             $display("❌ [FAIL] ALU1: cs_cdb_broadcast.t2 = %h, cs_wb_data[2] = %h, cs_retire_valid = %b", cs_cdb_broadcast.t2, cs_wb_data[2], cs_retire_valid);
         end

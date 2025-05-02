@@ -71,7 +71,7 @@ module prefetch_simple_tb;
 
         // 3) 验证只要 icache_pref_cmd 为 BUS_LOAD 就 PASS
         if (icache_pref_cmd == 2'h1) begin
-            $display("PASS");
+            $display("ALL PASS!");
         end else begin
             $display("FAIL: icache_pref_cmd = %0h", icache_pref_cmd);
         end

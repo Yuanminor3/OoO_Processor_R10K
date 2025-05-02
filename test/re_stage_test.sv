@@ -22,9 +22,10 @@ module retire_stage_tb;
         .rob_head_entry(rob_head_entry),
         .mt_checkpoint_tbl(mt_checkpoint_tbl),
         .recover_maptable(),
-        .Retire_EN(Retire_EN),
+        .fl_retire_en_mask(Retire_EN),
         .SQRetireEN(),
-        .halt(halt)
+        .halt(halt),
+	.retired_inst_cnt()
     );
     
     initial begin

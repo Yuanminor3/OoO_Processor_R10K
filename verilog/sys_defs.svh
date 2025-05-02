@@ -16,6 +16,7 @@
 // SYS_PHYS_REG and Value
 `define SYS_XLEN 32		// 32 value bits 
 `define SYS_PHYS_REG 6  		// 2^6 = 64 Physical registers (32AR+32ROB)
+`define SYS_PHYS_REG_ADDR_WIDTH 6
 `define SYS_ZERO_PHYS_REG 0  	// SYS_PHYS_REG[0] = AR[0], always read 0 and don't write.
 `define SYS_ZERO_ARCH_REG 5'd0
 // SYS_ROB_ADDR_WIDTH

@@ -18,7 +18,7 @@ module rob_test;
 
   logic [1:0] test_passed;  // for 2 test cases
 
-  SYS_ROB_ADDR_WIDTH dut (
+  ROB dut (
     .clk,
     .rst,
     .dispatch_rob_pkts,
