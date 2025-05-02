@@ -11,103 +11,103 @@ module tb_dispatch_stage_summary;
   //––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   // Inputs to DUT
   //––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-  IF_ID_PACKET [2:0]      dis_packet_in;
-  logic [2:0][`PR-1:0]    free_pr_in;
-  logic [2:0][`PR-1:0]    reg1_pr, reg2_pr;
-  logic [2:0]             reg1_ready, reg2_ready;
-  logic [2:0][`PR-1:0]    maptable_old_pr;
-  logic [2:0][`ROB-1:0]   rob_index;
-  logic [2:0][`LSQ-1:0]   sq_tail_pos;
-  logic [2:0]             d_stall;
+  IF_ID_PACKET [2:0]      dispatch_if_pkts;
+  logic [2:0][`SYS_PHYS_REG_ADDR_WIDTH-1:0]    dispatch_free_prs;
+  logic [2:0][`SYS_PHYS_REG_ADDR_WIDTH-1:0]    dispatch_src1_pr, dispatch_src2_pr;
+  logic [2:0]             dispatch_src1_rdy, dispatch_src2_rdy;
+  logic [2:0][`SYS_PHYS_REG_ADDR_WIDTH-1:0]    dispatch_oldprs;
+  logic [2:0][`SYS_ROB_ADDR_WIDTH-1:0]   dispatch_idx;
+  logic [2:0][`SYS_LSQ_ADDR_WIDTH-1:0]   dispatch_pointer_tail;
+  logic [2:0]             dispatch_stall_mask;
 
   //––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   // Outputs from DUT
   //––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-  RS_IN_PACKET    [2:0]    rs_in;
-  ROB_ENTRY_PACKET[2:0]    rob_in;
-  logic [2:0]              new_pr_en;
-  logic [2:0][`PR-1:0]     maptable_new_pr;
-  logic [2:0][4:0]         maptable_ar;
-  logic [2:0][4:0]         reg1_ar, reg2_ar;
-  logic [2:0]              sq_alloc;
-  FU_SELECT       [2:0]    fu_sel_out;
-  IF_ID_PACKET    [2:0]    dis_packet_out;
+  RS_IN_PACKET    [2:0]    dispatch_rs_pkts;
+  ROB_ENTRY_PACKET[2:0]    dispatch_rob_pkts;
+  logic [2:0]              dispatch_pr_allocEN;
+  logic [2:0][`SYS_PHYS_REG_ADDR_WIDTH-1:0]     dispatch_pr_alloc_tags;
+  logic [2:0][4:0]         dispatch_arch_regs;
+  logic [2:0][4:0]         dispatch_src1_arch_regs, dispatch_src2_arch_regs;
+  logic [2:0]              dispatch_sq_flags;
+  FU_SELECT       [2:0]    dispatc_unit_sel;
+  IF_ID_PACKET    [2:0]    dispatch_if_pkts_out;
 
   //––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   // Unit Under Test
   //––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   dispatch_stage uut (
-    .dis_packet_in    (dis_packet_in),
-    .free_pr_in       (free_pr_in),
-    .reg1_pr          (reg1_pr),
-    .reg2_pr          (reg2_pr),
-    .reg1_ready       (reg1_ready),
-    .reg2_ready       (reg2_ready),
-    .maptable_old_pr  (maptable_old_pr),
-    .rob_index        (rob_index),
-    .sq_tail_pos      (sq_tail_pos),
-    .d_stall          (d_stall),
+    .dispatch_if_pkts    (dispatch_if_pkts),
+    .dispatch_free_prs       (dispatch_free_prs),
+    .dispatch_src1_pr          (dispatch_src1_pr),
+    .dispatch_src2_pr          (dispatch_src2_pr),
+    .dispatch_src1_rdy       (dispatch_src1_rdy),
+    .dispatch_src2_rdy       (dispatch_src2_rdy),
+    .dispatch_oldprs  (dispatch_oldprs),
+    .dispatch_idx        (dispatch_idx),
+    .dispatch_pointer_tail      (dispatch_pointer_tail),
+    .dispatch_stall_mask          (dispatch_stall_mask),
 
-    .rs_in            (rs_in),
-    .rob_in           (rob_in),
-    .new_pr_en        (new_pr_en),
-    .maptable_new_pr  (maptable_new_pr),
-    .maptable_ar      (maptable_ar),
-    .reg1_ar          (reg1_ar),
-    .reg2_ar          (reg2_ar),
-    .sq_alloc         (sq_alloc),
-    .fu_sel_out       (fu_sel_out),
-    .dis_packet_out   (dis_packet_out)
+    .dispatch_rs_pkts            (dispatch_rs_pkts),
+    .dispatch_rob_pkts           (dispatch_rob_pkts),
+    .dispatch_pr_allocEN        (dispatch_pr_allocEN),
+    .dispatch_pr_alloc_tags  (dispatch_pr_alloc_tags),
+    .dispatch_arch_regs      (dispatch_arch_regs),
+    .dispatch_src1_arch_regs          (dispatch_src1_arch_regs),
+    .dispatch_src2_arch_regs          (dispatch_src2_arch_regs),
+    .dispatch_sq_flags         (dispatch_sq_flags),
+    .dispatc_unit_sel       (dispatc_unit_sel),
+    .dispatch_if_pkts_out   (dispatch_if_pkts_out)
   );
 
   initial begin
     //—— TEST1: all-zero inputs ——
-    dis_packet_in     = '{default:'0};
-    free_pr_in        = '{5'd8, 5'd9, 5'd10};
-    reg1_pr           = '{5'd1, 5'd2, 5'd3};
-    reg2_pr           = '{5'd4, 5'd5, 5'd6};
-    reg1_ready        = 3'b111;
-    reg2_ready        = 3'b111;
-    maptable_old_pr   = free_pr_in;
-    rob_index         = '{0,1,2};
-    sq_tail_pos       = '{0,1,2};
-    d_stall           = 3'b000;
+    dispatch_if_pkts     = '{default:'0};
+    dispatch_free_prs        = '{5'd8, 5'd9, 5'd10};
+    dispatch_src1_pr           = '{5'd1, 5'd2, 5'd3};
+    dispatch_src2_pr           = '{5'd4, 5'd5, 5'd6};
+    dispatch_src1_rdy        = 3'b111;
+    dispatch_src2_rdy        = 3'b111;
+    dispatch_oldprs   = dispatch_free_prs;
+    dispatch_idx         = '{0,1,2};
+    dispatch_pointer_tail       = '{0,1,2};
+    dispatch_stall_mask           = 3'b000;
     #1;
 
     $display("\n--- TEST1: all-zero inputs ---");
-    $display(" new_pr_en   = %b", new_pr_en);
-    $display(" sq_alloc    = %b", sq_alloc);
-    $display(" rs_in[0].v  = %b, rob_in[0].v = %b",
-             rs_in[0].valid, rob_in[0].valid);
+    $display(" dispatch_pr_allocEN   = %b", dispatch_pr_allocEN);
+    $display(" dispatch_sq_flags    = %b", dispatch_sq_flags);
+    $display(" dispatch_rs_pkts[0].v  = %b, dispatch_rob_pkts[0].v = %b",
+             dispatch_rs_pkts[0].valid, dispatch_rob_pkts[0].valid);
 
-    //—— TEST2: mixed valid + stall slot1 ——
-    dis_packet_in[0] = '{valid:1, PC:100, NPC:104, inst:`RV32_ADDI, predict_direction:0, predict_pc:0};
-    dis_packet_in[1] = '{valid:1, PC:200, NPC:204, inst:`RV32_SW,   predict_direction:0, predict_pc:0};
-    dis_packet_in[2] = '{valid:1, PC:300, NPC:304, inst:`RV32_BEQ, predict_direction:1, predict_pc:400};
-    d_stall          = 3'b010;
+    //—— TEST2: mixed valid + lsq_stall_mask slot1 ——
+    dispatch_if_pkts[0] = '{valid:1, PC:100, NPC:104, inst:`RV32_ADDI, bp_pred_taken:0, bp_pred_target:0};
+    dispatch_if_pkts[1] = '{valid:1, PC:200, NPC:204, inst:`RV32_SW,   bp_pred_taken:0, bp_pred_target:0};
+    dispatch_if_pkts[2] = '{valid:1, PC:300, NPC:304, inst:`RV32_BEQ, bp_pred_taken:1, bp_pred_target:400};
+    dispatch_stall_mask          = 3'b010;
     #1;
 
-    $display("\n--- TEST2: mixed valid + stall slot1 ---");
+    $display("\n--- TEST2: mixed valid + lsq_stall_mask slot1 ---");
     for (int i = 0; i < 3; i++) begin
-      $display(" slot %0d | in.v=%b | out.v=%b | new_pr_en=%b | sq_alloc=%b | fu_sel=%0d",
+      $display(" slot %0d | in.v=%b | out.v=%b | dispatch_pr_allocEN=%b | dispatch_sq_flags=%b | dec_fu_unit_sel=%0d",
                i,
-               dis_packet_in[i].valid,
-               dis_packet_out[i].valid,
-               new_pr_en[i],
-               sq_alloc[i],
-               fu_sel_out[i]);
+               dispatch_if_pkts[i].valid,
+               dispatch_if_pkts_out[i].valid,
+               dispatch_pr_allocEN[i],
+               dispatch_sq_flags[i],
+               dispatc_unit_sel[i]);
     end
 
     //—— 测试总结 ——  
     $display("\n===== DISPATCH STAGE TEST SUMMARY =====");
     $display("TEST1: Verified that with all-zero inputs:");
-    $display("  new_pr_en=000, sq_alloc=000, rs_in[0].valid=0, rob_in[0].valid=0");
-    $display("TEST2: Verified stall on slot1 disables slot0&1, enables only slot2 branch:");
+    $display("  dispatch_pr_allocEN=000, dispatch_sq_flags=000, dispatch_rs_pkts[0].valid=0, dispatch_rob_pkts[0].valid=0");
+    $display("TEST2: Verified lsq_stall_mask on slot1 disables slot0&1, enables only slot2 branch:");
     $display("  slot0 out.valid=%b, slot1 out.valid=%b, slot2 out.valid=%b",
-             dis_packet_out[0].valid,
-             dis_packet_out[1].valid,
-             dis_packet_out[2].valid);
-    $display("  slot2 fu_sel=%0d (should be BRANCH=%0d)", fu_sel_out[2], BRANCH);
+             dispatch_if_pkts_out[0].valid,
+             dispatch_if_pkts_out[1].valid,
+             dispatch_if_pkts_out[2].valid);
+    $display("  slot2 dec_fu_unit_sel=%0d (should be BRANCH=%0d)", dispatc_unit_sel[2], BRANCH);
 
     //—— 大大展示通过 ——  
     $display("\n**************************************************");

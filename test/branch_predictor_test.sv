@@ -3,56 +3,56 @@
 
 module bp_test;
 
-  logic clock, reset;
-  logic [2:0] dispatch_EN, fetch_EN;
-  logic update_EN;
-  logic [`XLEN-1:0] update_pc, update_target;
-  logic update_direction;
-  logic [2:0][`XLEN-1:0] dispatch_pc, fetch_pc;
-  logic [2:0] predict_found, predict_direction;
-  logic [2:0][`XLEN-1:0] predict_pc;
+  logic clk, rst;
+  logic [2:0] bp_disp_enable, bp_fetch_enable;
+  logic bs_upd_en;
+  logic [`SYS_XLEN-1:0] bs_upd_pc, bs_upd_target;
+  logic bs_upd_taken;
+  logic [2:0][`SYS_XLEN-1:0] bp_disp_addr, bp_fetch_addr;
+  logic [2:0] bp_pred_valid, bp_pred_taken;
+  logic [2:0][`SYS_XLEN-1:0] bp_pred_target;
 
   logic test_passed;
 
   branch_predictor bp (
-    .clock, .reset,
-    .dispatch_EN, .dispatch_pc,
-    .update_EN, .update_pc, .update_direction, .update_target,
-    .fetch_EN, .fetch_pc,
-    .predict_found, .predict_direction, .predict_pc
+    .clk, .rst,
+    .bp_disp_enable, .bp_disp_addr,
+    .bs_upd_en, .bs_upd_pc, .bs_upd_taken, .bs_upd_target,
+    .bp_fetch_enable, .bp_fetch_addr,
+    .bp_pred_valid, .bp_pred_taken, .bp_pred_target
   );
 
   // Clock generation
-  always #5 clock = ~clock;
+  always #5 clk = ~clk;
 
   initial begin
-    clock = 0;
-    reset = 1;
-    dispatch_EN = 0;
-    fetch_EN = 0;
-    dispatch_pc = '{default:0};
-    fetch_pc = '{default:0};
-    update_EN = 0;
-    update_pc = 0;
-    update_direction = 0;
-    update_target = 0;
+    clk = 0;
+    rst = 1;
+    bp_disp_enable = 0;
+    bp_fetch_enable = 0;
+    bp_disp_addr = '{default:0};
+    bp_fetch_addr = '{default:0};
+    bs_upd_en = 0;
+    bs_upd_pc = 0;
+    bs_upd_taken = 0;
+    bs_upd_target = 0;
     test_passed = 1;
 
-    @(negedge clock); reset = 0;
+    @(negedge clk); rst = 0;
 
     // ----------- Case 0: Fetch cold miss ------------
-    @(negedge clock);
-    fetch_EN[0] = 1;
-    fetch_pc[0] = 32'h1000;
+    @(negedge clk);
+    bp_fetch_enable[0] = 1;
+    bp_fetch_addr[0] = 32'h1000;
 
-    @(negedge clock);
-    if (!predict_found[0])
+    @(negedge clk);
+    if (!bp_pred_valid[0])
       $display("[PASS] Case 0: Cold fetch miss as expected");
     else begin
       $display("[FAIL] Case 0: Unexpected prediction found");
       test_passed = 0;
     end
-    fetch_EN = 0;
+    bp_fetch_enable = 0;
 
     // ---------- Summary ----------
     if (test_passed)

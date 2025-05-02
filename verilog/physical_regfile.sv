@@ -5,42 +5,42 @@
 `include "verilog/sys_defs.svh"
 
 module physical_regfile(
-    input   clock,
-    input   reset,
-    input  [2:0][`PR-1:0] 	read_idx_1, read_idx_2,   // read index
-    input  [2:0][`XLEN-1:0] 	write_data,   // write data
+    input   clk,
+    input   rst,
+    input  [2:0][`SYS_PHYS_REG-1:0] 	rd_index_1, rd_index_2,   // read index
+    input  [2:0][`SYS_XLEN-1:0] 	write_data,   // write data
     input   CDB_T_PACKET 	write_idx,
 
-    output logic [2:0][`XLEN-1:0] read_out_1, read_out_2    // read data
+    output logic [2:0][`SYS_XLEN-1:0] rd_result_1, rd_result_2    // read data
 
 );
 
-logic [2**`PR-1:0][`XLEN-1:0] registers;
-logic [2**`PR-1:0][`XLEN-1:0] registers_next;
+logic [2**`SYS_PHYS_REG-1:0][`SYS_XLEN-1:0] phy_regs;
+logic [2**`SYS_PHYS_REG-1:0][`SYS_XLEN-1:0] phy_regs_next;
 
 // Write 
 always_comb begin
-    registers_next = registers;
-    if (write_idx.t0 != `ZERO_PR)
-        registers_next[write_idx.t0] = write_data[0];
-    if (write_idx.t1 != `ZERO_PR)
-        registers_next[write_idx.t1] = write_data[1];
-    if (write_idx.t2 != `ZERO_PR)
-        registers_next[write_idx.t2] = write_data[2];
+    phy_regs_next = phy_regs;
+    if (write_idx.t0 != `SYS_ZERO_PHYS_REG)
+        phy_regs_next[write_idx.t0] = write_data[0];
+    if (write_idx.t1 != `SYS_ZERO_PHYS_REG)
+        phy_regs_next[write_idx.t1] = write_data[1];
+    if (write_idx.t2 != `SYS_ZERO_PHYS_REG)
+        phy_regs_next[write_idx.t2] = write_data[2];
 end
 
 // Read 
 always_comb begin
     for(int i=0; i<3; i++) begin
-        read_out_1[i] = registers[read_idx_1[i]];
-        read_out_2[i] = registers[read_idx_2[i]];
+        rd_result_1[i] = phy_regs[rd_index_1[i]];
+        rd_result_2[i] = phy_regs[rd_index_2[i]];
     end
 end
-//sync reset
-always_ff @(posedge clock) begin
-    if (reset)
-        registers <= `SD 0;
-    else registers <= `SD registers_next;
+//sync rst
+always_ff @(posedge clk) begin
+    if (rst)
+        phy_regs <= `SYS_SMALL_DELAY 0;
+    else phy_regs <= `SYS_SMALL_DELAY phy_regs_next;
 end
 
 endmodule; // physical_regfile

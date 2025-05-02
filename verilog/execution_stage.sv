@@ -7,160 +7,160 @@
 `include "verilog/branch_fu.sv"
 
 module execution_stage(
-    input                               clock,
-    input                               reset,
+    input                               clk,
+    input                               rst,
     // all fu I/O
-    input FU_STATE_PACKET		complete_stall,
-    input ISSUE_FU_PACKET [2**`FU-1:0]  fu_packet_in,
-    output FU_STATE_PACKET               fu_ready,
-    output FU_STATE_PACKET               fu_finish,
-    output FU_COMPLETE_PACKET  [2**`FU-1:0]  fu_c_packet,
+    input FU_STATE_PACKET		bs_hazard,
+    input ISSUE_FU_PACKET [2**`SYS_FU_ADDR_WIDTH-1:0]  bs_in_pkt,
+    output FU_STATE_PACKET               rsb_fu_ready,
+    output FU_STATE_PACKET               cs_fu_done_flags,
+    output FU_COMPLETE_PACKET  [2**`SYS_FU_ADDR_WIDTH-1:0]  exs_fu_completion_pkts,
     // alu to sq
-    output [2:0]                       exe_valid,
-    output SQ_ENTRY_PACKET [2:0]       exe_store,
-    output [2:0][`LSQ-1:0]             exe_idx,
+    output [2:0]                       exs_store_flags,
+    output SQ_ENTRY_PACKET [2:0]       exe_store_entries,
+    output [2:0][`SYS_LSQ_ADDR_WIDTH-1:0]             exs_store_index,
     // fu_load <-> sq
-    input SQ_LOAD_PACKET [1:0]         load_forward,
-    output LOAD_SQ_PACKET [1:0]        load_lookup,
+    input SQ_LOAD_PACKET [1:0]         exs_load2pkts,
+    output LOAD_SQ_PACKET [1:0]        exs_load_req_pkts,
     // fu_load <-> dcache
-    output [1:0][`XLEN-1:0]      cache_read_addr,
-    output [1:0]		 cache_read_start,
-    input [1:0][`XLEN-1:0]       ld_data,
-    input  [1:0]                 is_hit,
-    input  [1:0]                 broadcast_fu,
-    input  [`XLEN-1:0]           broadcast_data,
+    output [1:0][`SYS_XLEN-1:0]      exs_dcache_req_addr,
+    output [1:0]		 exs_dcache_req_valid,
+    input [1:0][`SYS_XLEN-1:0]       exs_dcache_resp_data,
+    input  [1:0]                 exs_dcache_hit_flags,
+    input  [1:0]                 exs_dcache_brdcast_mask,
+    input  [`SYS_XLEN-1:0]           exs_dcache_brdcast_data,
     // fu_branch to bp
-    output 			 update_EN,
-    output [`XLEN-1:0]           update_pc,
-    output 			 update_direction,
-    output [`XLEN-1:0]           update_target
+    output 			 bs_upd_en,
+    output [`SYS_XLEN-1:0]           bs_upd_pc,
+    output 			 bs_upd_taken,
+    output [`SYS_XLEN-1:0]           bs_upd_target
 );
 
 fu_alu fu_alu_1(
-    .clock(clock),                             // system clock
-    .reset(reset),               	       // system reset
-    .complete_stall(complete_stall[ALU_1]),    // <- complete.fu_c_stall
-    .fu_packet_in(fu_packet_in[ALU_1]),        // <- issue.issue_2_fu
-    .fu_ready(fu_ready.alu_1),                 // -> issue.fu_ready
-    .want_to_complete(fu_finish.alu_1),        // -> complete.fu_finish
-    .fu_packet_out(fu_c_packet[ALU_1]),         
+    .clk(clk),                             // system clk
+    .rst(rst),               	       // system rst
+    .bs_hazard(bs_hazard[ALU_1]),    // <- complete.cs_stall_mask
+    .bs_in_pkt(bs_in_pkt[ALU_1]),        // <- issue.issue_2_fu
+    .rsb_fu_ready(rsb_fu_ready.alu_1),                 // -> issue.rsb_fu_ready
+    .fum_complete_req(cs_fu_done_flags.alu_1),        // -> complete.cs_fu_done_flags
+    .bs_out_pkt(exs_fu_completion_pkts[ALU_1]),         
 
     // STORE
-    .if_store(exe_valid[0]),
-    .store_pckt(exe_store[0]),
-    .sq_idx(exe_idx[0])
+    .alu_store_enable(exs_store_flags[0]),
+    .alu_store_output_entry(exe_store_entries[0]),
+    .alu_store_sq_index(exs_store_index[0])
 );
 
 fu_alu fu_alu_2(
-    .clock(clock),                             // system clock
-    .reset(reset),               	       // system reset
-    .complete_stall(complete_stall[ALU_2]),    // <- complete.fu_c_stall
-    .fu_packet_in(fu_packet_in[ALU_2]),        // <- issue.issue_2_fu
-    .fu_ready(fu_ready.alu_2),                 // -> issue.fu_ready
-    .want_to_complete(fu_finish.alu_2),        // -> complete.fu_finish
-    .fu_packet_out(fu_c_packet[ALU_2]),          
+    .clk(clk),                             // system clk
+    .rst(rst),               	       // system rst
+    .bs_hazard(bs_hazard[ALU_2]),    // <- complete.cs_stall_mask
+    .bs_in_pkt(bs_in_pkt[ALU_2]),        // <- issue.issue_2_fu
+    .rsb_fu_ready(rsb_fu_ready.alu_2),                 // -> issue.rsb_fu_ready
+    .fum_complete_req(cs_fu_done_flags.alu_2),        // -> complete.cs_fu_done_flags
+    .bs_out_pkt(exs_fu_completion_pkts[ALU_2]),          
 
     // STORE
-    .if_store(exe_valid[1]),
-    .store_pckt(exe_store[1]),
-    .sq_idx(exe_idx[1])
+    .alu_store_enable(exs_store_flags[1]),
+    .alu_store_output_entry(exe_store_entries[1]),
+    .alu_store_sq_index(exs_store_index[1])
 );
 
 fu_alu fu_alu_3(
-    .clock(clock),                             // system clock
-    .reset(reset),               	       // system reset
-    .complete_stall(complete_stall[ALU_3]),    // <- complete.fu_c_stall
-    .fu_packet_in(fu_packet_in[ALU_3]),        // <- issue.issue_2_fu
-    .fu_ready(fu_ready.alu_3),                 // -> issue.fu_ready
-    .want_to_complete(fu_finish.alu_3),        // -> complete.fu_finish
-    .fu_packet_out(fu_c_packet[ALU_3]),        // -> complete.fu_c_in
+    .clk(clk),                             // system clk
+    .rst(rst),               	       // system rst
+    .bs_hazard(bs_hazard[ALU_3]),    // <- complete.cs_stall_mask
+    .bs_in_pkt(bs_in_pkt[ALU_3]),        // <- issue.issue_2_fu
+    .rsb_fu_ready(rsb_fu_ready.alu_3),                 // -> issue.rsb_fu_ready
+    .fum_complete_req(cs_fu_done_flags.alu_3),        // -> complete.cs_fu_done_flags
+    .bs_out_pkt(exs_fu_completion_pkts[ALU_3]),        // -> complete.cs_fu_complete_pkts
 
     // STORE
-    .if_store(exe_valid[2]),
-    .store_pckt(exe_store[2]),
-    .sq_idx(exe_idx[2])
+    .alu_store_enable(exs_store_flags[2]),
+    .alu_store_output_entry(exe_store_entries[2]),
+    .alu_store_sq_index(exs_store_index[2])
 );
 
 fu_mult fu_mult_1(
-    .clock(clock),
-    .reset(reset),
-    .complete_stall(complete_stall.mult_1),
-    .fu_packet_in(fu_packet_in[MULT_1]),
-    .fu_ready(fu_ready.mult_1),
-    .want_to_complete(fu_finish.mult_1),
-    .fu_packet_out(fu_c_packet[MULT_1])
+    .clk(clk),
+    .rst(rst),
+    .bs_hazard(bs_hazard.mult_1),
+    .bs_in_pkt(bs_in_pkt[MULT_1]),
+    .rsb_fu_ready(rsb_fu_ready.mult_1),
+    .fum_complete_req(cs_fu_done_flags.mult_1),
+    .bs_out_pkt(exs_fu_completion_pkts[MULT_1])
 );
 
 fu_mult fu_mult_2(
-    .clock(clock),
-    .reset(reset),
-    .complete_stall(complete_stall.mult_2),
-    .fu_packet_in(fu_packet_in[MULT_2]),
-    .fu_ready(fu_ready.mult_2),
-    .want_to_complete(fu_finish.mult_2),
-    .fu_packet_out(fu_c_packet[MULT_2])
+    .clk(clk),
+    .rst(rst),
+    .bs_hazard(bs_hazard.mult_2),
+    .bs_in_pkt(bs_in_pkt[MULT_2]),
+    .rsb_fu_ready(rsb_fu_ready.mult_2),
+    .fum_complete_req(cs_fu_done_flags.mult_2),
+    .bs_out_pkt(exs_fu_completion_pkts[MULT_2])
 );
 
 fu_load fu_load_1(
-    .clock(clock),
-    .reset(reset),
-    .complete_stall(complete_stall.loadstore_1),
-    .fu_packet_in(fu_packet_in[LS_1]),
+    .clk(clk),
+    .rst(rst),
+    .bs_hazard(bs_hazard.loadstore_1),
+    .bs_in_pkt(bs_in_pkt[LS_1]),
 
     // output
-    .fu_ready(fu_ready.loadstore_1),
-    .want_to_complete(fu_finish.loadstore_1),
-    .fu_packet_out(fu_c_packet[LS_1]),
+    .rsb_fu_ready(rsb_fu_ready.loadstore_1),
+    .fum_complete_req(cs_fu_done_flags.loadstore_1),
+    .bs_out_pkt(exs_fu_completion_pkts[LS_1]),
 
     // SQ
-    .sq_lookup(load_lookup[0]),    // -> SQ.load_lookup
-    .sq_result(load_forward[0]),   // <- SQ.load_forward
+    .ld_sq_request(exs_load_req_pkts[0]),    // -> SQ.exs_load_req_pkts
+    .ld_sq_response(exs_load2pkts[0]),   // <- SQ.exs_load2pkts
 
     // Cache
-    .addr(cache_read_addr[0]),      // -> dcache 
-    .cache_data_in(ld_data[0]), // <- dcache 
-    .cache_read_EN(cache_read_start[0]),
-    .is_hit(is_hit[0]),
-    .broadcast_en(broadcast_fu[0]),
-    .broadcast_data(broadcast_data)
+    .addr(exs_dcache_req_addr[0]),      // -> dcache 
+    .ld_cache_data_in(exs_dcache_resp_data[0]), // <- dcache 
+    .ld_cache_read_enable(exs_dcache_req_valid[0]),
+    .exs_dcache_hit_flags(exs_dcache_hit_flags[0]),
+    .broadcast_en(exs_dcache_brdcast_mask[0]),
+    .exs_dcache_brdcast_data(exs_dcache_brdcast_data)
 );
 
 fu_load fu_load_2(
-    .clock(clock),
-    .reset(reset),
-    .complete_stall(complete_stall.loadstore_2),
-    .fu_packet_in(fu_packet_in[LS_2]),
+    .clk(clk),
+    .rst(rst),
+    .bs_hazard(bs_hazard.loadstore_2),
+    .bs_in_pkt(bs_in_pkt[LS_2]),
 
     // output
-    .fu_ready(fu_ready.loadstore_2),
-    .want_to_complete(fu_finish.loadstore_2),
-    .fu_packet_out(fu_c_packet[LS_2]),
+    .rsb_fu_ready(rsb_fu_ready.loadstore_2),
+    .fum_complete_req(cs_fu_done_flags.loadstore_2),
+    .bs_out_pkt(exs_fu_completion_pkts[LS_2]),
 
     // SQ
-    .sq_lookup(load_lookup[1]),    // -> SQ.load_lookup
-    .sq_result(load_forward[1]),   // <- SQ.load_forward
+    .ld_sq_request(exs_load_req_pkts[1]),    // -> SQ.exs_load_req_pkts
+    .ld_sq_response(exs_load2pkts[1]),   // <- SQ.exs_load2pkts
 
     // Cache
-    .addr(cache_read_addr[1]),      // -> dcache 
-    .cache_data_in(ld_data[1]),     // <- dcache 
-    .cache_read_EN(cache_read_start[1]),
-    .is_hit(is_hit[1]),
-    .broadcast_en(broadcast_fu[1]),
-    .broadcast_data(broadcast_data)
+    .addr(exs_dcache_req_addr[1]),      // -> dcache 
+    .ld_cache_data_in(exs_dcache_resp_data[1]),     // <- dcache 
+    .ld_cache_read_enable(exs_dcache_req_valid[1]),
+    .exs_dcache_hit_flags(exs_dcache_hit_flags[1]),
+    .broadcast_en(exs_dcache_brdcast_mask[1]),
+    .exs_dcache_brdcast_data(exs_dcache_brdcast_data)
 );
 
 branch_stage branc(
-    .clock(clock),
-    .reset(reset),
-    .complete_stall(complete_stall.branch),
-    .fu_packet_in(fu_packet_in[BRANCH]),
-    .fu_ready(fu_ready.branch),
-    .want_to_complete_branch(fu_finish.branch),
-    .fu_packet_out(fu_c_packet[BRANCH]),
-    .update_EN(update_EN), 
-    .update_pc(update_pc), 
-    .update_direction(update_direction),
-    .update_target(update_target)
+    .clk(clk),
+    .rst(rst),
+    .bs_hazard(bs_hazard.branch),
+    .bs_in_pkt(bs_in_pkt[BRANCH]),
+    .rsb_fu_ready(rsb_fu_ready.branch),
+    .bs_fire(cs_fu_done_flags.branch),
+    .bs_out_pkt(exs_fu_completion_pkts[BRANCH]),
+    .bs_upd_en(bs_upd_en), 
+    .bs_upd_pc(bs_upd_pc), 
+    .bs_upd_taken(bs_upd_taken),
+    .bs_upd_target(bs_upd_target)
 );
 
 endmodule

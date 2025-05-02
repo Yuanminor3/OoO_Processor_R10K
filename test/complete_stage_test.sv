@@ -3,69 +3,69 @@
 
 module complete_stage_tb;
 
-    // Clock and reset signals
-    logic clock;
-    logic reset;
+    // Clock and rst signals
+    logic clk;
+    logic rst;
 
     // Inputs to DUT
-    FU_STATE_PACKET             fu_finish;
-    FU_COMPLETE_PACKET [7:0]    fu_c_in;
+    FU_STATE_PACKET             cs_fu_done_flags;
+    FU_COMPLETE_PACKET [7:0]    cs_fu_complete_pkts;
 
     // Outputs from DUT
-    FU_STATE_PACKET             fu_c_stall;
-    CDB_T_PACKET                cdb_t;
-    logic [2:0][`XLEN-1:0]      wb_value;
-    logic [2:0]                 complete_valid;
-    logic [2:0][`ROB-1:0]       complete_entry;
-    logic [2:0]                 finish_valid;
-    logic [2:0][`FU:0]          finish;
-    logic [2:0][`XLEN-1:0]      target_pc;
+    FU_STATE_PACKET             cs_stall_mask;
+    CDB_T_PACKET                cs_cdb_broadcast;
+    logic [2:0][`SYS_XLEN-1:0]      cs_wb_data;
+    logic [2:0]                 cs_retire_valid;
+    logic [2:0][`SYS_ROB_ADDR_WIDTH-1:0]       cs_retire_idx;
+    logic [2:0]                 cs_finish_valid;
+    logic [2:0][`SYS_FU_ADDR_WIDTH:0]          finish;
+    logic [2:0][`SYS_XLEN-1:0]      cs_retire_pc;
 
     // Instantiate the DUT
     complete_stage dut (
-        .clock(clock),
-        .reset(reset),
-        .fu_finish(fu_finish),
-        .fu_c_in(fu_c_in),
-        .fu_c_stall(fu_c_stall),
-        .cdb_t(cdb_t),
-        .wb_value(wb_value),
-        .complete_valid(complete_valid),
-        .complete_entry(complete_entry),
-        .finish_valid(finish_valid),
+        .clk(clk),
+        .rst(rst),
+        .cs_fu_done_flags(cs_fu_done_flags),
+        .cs_fu_complete_pkts(cs_fu_complete_pkts),
+        .cs_stall_mask(cs_stall_mask),
+        .cs_cdb_broadcast(cs_cdb_broadcast),
+        .cs_wb_data(cs_wb_data),
+        .cs_retire_valid(cs_retire_valid),
+        .cs_retire_idx(cs_retire_idx),
+        .cs_finish_valid(cs_finish_valid),
         .finish(finish),
-        .target_pc(target_pc)
+        .cs_retire_pc(cs_retire_pc)
     );
 
     // Clock generation
     always begin
-        #5 clock = ~clock;
+        #5 clk = ~clk;
     end
 
     // Main test sequence
     initial begin
         // Initialize signals
-        clock = 0;
-        reset = 1;
-        fu_finish = 0;
-        fu_c_in = '{default:0};
+        clk = 0;
+        rst = 1;
+        cs_fu_done_flags = 0;
+        cs_fu_complete_pkts = '{default:0};
 
-        // Apply reset
-        #10 reset = 0;
+        // Apply rst
+        #10 rst = 0;
 
         // Test 1: Single ALU1 completion
         $display("\n=== Test 1: Single ALU1 completion ===");
-        fu_finish.alu_1 = 1;
-        fu_c_in[0].valid = 1;
-        fu_c_in[0].dest_pr = 5'h01;
-        fu_c_in[0].dest_value = 32'h12345678;
-        fu_c_in[0].rob_entry = 5'd10;
+        cs_fu_done_flags.alu_1 = 1;
+        cs_fu_complete_pkts[0].valid = 1;
+        cs_fu_complete_pkts[0].dispatch_allocated_prs = 5'h01;
+        cs_fu_complete_pkts[0].dest_value = 32'h12345678;
+        cs_fu_complete_pkts[0].rob_entry = 5'd10;
         #10;
 
-        if (cdb_t.t2 == 5'h01 && wb_value[2] == 32'h12345678 && complete_valid[2]) begin
-            $display("✅ [PASS] ALU1 writeback correct: cdb_t.t2 = %h, wb_value[2] = %h", cdb_t.t2, wb_value[2]);
+        if (cs_cdb_broadcast.t2 == 5'h01 && cs_wb_data[2] == 32'h12345678 && cs_retire_valid[2]) begin
+            $display("✅ [PASS] ALU1 writeback correct: cs_cdb_broadcast.t2 = %h, cs_wb_data[2] = %h", cs_cdb_broadcast.t2, cs_wb_data[2]);
         end else begin
-            $display("❌ [FAIL] ALU1: cdb_t.t2 = %h, wb_value[2] = %h, complete_valid = %b", cdb_t.t2, wb_value[2], complete_valid);
+            $display("❌ [FAIL] ALU1: cs_cdb_broadcast.t2 = %h, cs_wb_data[2] = %h, cs_retire_valid = %b", cs_cdb_broadcast.t2, cs_wb_data[2], cs_retire_valid);
         end
 
         $display("\n=== Test Complete ===");

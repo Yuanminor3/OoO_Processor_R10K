@@ -26,16 +26,19 @@ It supports the RV32IM ISA, featuring:
 The design includes key components such as fetch, dispatch, issue, functional units, complete, retire stages, reorder buffer (RoB), reservation stations (RS), physical register file (PR), and memory systems. 
 
 **Top-Level Architecture**
-![Top-Level Architecture](docs/OoO_pipeline.png)
+![OoO_pipeline](docs/OoO_pipeline.png)
 
 ## 🏆 Project Results
 
 ### Clock Period in `Makefile` (default: 15ns)
 - Simulation (Fastest Clock: **11.2ns**):   sim Total Passed 33 out of 33
-- Synthesis (Fastest Clock: **11.ns**):   syn Total Passed 33 out of 33
+- Synthesis  (Fastest Clock: **11.2ns**):   syn Total Passed 33 out of 33
 ### Metrics
 - **Average CPI** = 2.826372
-- **Average TPI** = ? ns
+- **Average TPI** = 31.655366 ns
+
+**CPI Performance vs. In-order Pipeline**
+![CPI Performance](docs/cpi.png)
 
 ## 🧩 Module Testbench
 To test a specific module using its corresponding testbench located in the `test/XXX_test.sv` folder:

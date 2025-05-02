@@ -13,39 +13,39 @@
 //          Parameter definitions  	    //
 //					    //
 //////////////////////////////////////////////
-// PR and Value
-`define XLEN 32		// 32 value bits 
-`define PR 6  		// 2^6 = 64 Physical registers (32AR+32ROB)
-`define ZERO_PR 0  	// PR[0] = AR[0], always read 0 and don't write.
-`define ZERO_REG 5'd0
-// ROB
-`define ROB 5     	
-`define ROBW 32		// 32 rob entries
-// FU
-`define FU 3 		// 2^3 = 8 fu in total
-`define OP 4
-`define MUL_STAGE 4
+// SYS_PHYS_REG and Value
+`define SYS_XLEN 32		// 32 value bits 
+`define SYS_PHYS_REG 6  		// 2^6 = 64 Physical registers (32AR+32ROB)
+`define SYS_ZERO_PHYS_REG 0  	// SYS_PHYS_REG[0] = AR[0], always read 0 and don't write.
+`define SYS_ZERO_ARCH_REG 5'd0
+// SYS_ROB_ADDR_WIDTH
+`define SYS_ROB_ADDR_WIDTH 5     	
+`define SYS_ROB_ENTRIES 32		// 32 rob entries
+// SYS_FU_ADDR_WIDTH
+`define SYS_FU_ADDR_WIDTH 3 		// 2^3 = 8 fu in total
+`define SYS_OP_NUM 4
+`define SYS_MUL_STAGES 4
 // RS
-`define RSW 16 		// 16 RS entry
-// LSQ
-`define LSQ 3		// 2^3 = 8 sq entry
-// MHSRS
-`define MHSRS 3
-`define MHSRS_W 8  	// = 4**`MHSRS
+`define SYS_RS_ADDR_WIDTH 16 		// 16 RS entry
+// SYS_LSQ_ADDR_WIDTH
+`define SYS_LSQ_ADDR_WIDTH 3		// 2^3 = 8 sq entry
+// SYS_MHSRS_ADDR_WIDTH
+`define SYS_MHSRS_ADDR_WIDTH 3
+`define SYS_MHSRS_NUM 8  	// = 4**`SYS_MHSRS_ADDR_WIDTH
 // IS
-`define IS_FIFO_DEPTH 32
+`define SYS_IS_FIFO_DEPTH 32
 // PREFETCH
-`define PREF 12   	// prefetch 16 lines ahead
-// BP
-`define BP 5
+`define SYS_PREFETCH_DISTANCE 12   	// prefetch 16 lines ahead
+// SYS_BRANCH_PREDICTION
+`define SYS_BRANCH_PREDICTION 5
 `define BPW 32
 // SMALL DELAY
-`define SD #1
+`define SYS_SMALL_DELAY #1
 // Boolean
 `define FALSE  1'h0
 `define TRUE  1'h1
-// Basic NOP instruction
-`define NOP 32'h00000013
+// Basic SYS_INST_NOP instruction
+`define SYS_INST_NOP 32'h00000013
 
 //////////////////////////////////////////////
 //					    //
@@ -56,23 +56,23 @@ typedef union packed {
 	logic [31:0] inst;
 	struct packed {
 		logic [6:0] funct7;
-		logic [4:0] rs2;
-		logic [4:0] rs1;
+		logic [4:0] cmp_opB;
+		logic [4:0] cmp_opA;
 		logic [2:0] funct3;
 		logic [4:0] rd;
 		logic [6:0] opcode;
-	} r; //register to register instructions
+	} cmp_type; //register to register instructions
 	struct packed {
 		logic [11:0] imm;
-		logic [4:0]  rs1; 
+		logic [4:0]  cmp_opA; 
 		logic [2:0]  funct3;
 		logic [4:0]  rd;  
 		logic [6:0]  opcode;
 	} i; //immediate or load instructions
 	struct packed {
 		logic [6:0] off; 
-		logic [4:0] rs2; 
-		logic [4:0] rs1; 
+		logic [4:0] cmp_opB; 
+		logic [4:0] cmp_opA; 
 		logic [2:0] funct3;
 		logic [4:0] set; 
 		logic [6:0] opcode;
@@ -80,8 +80,8 @@ typedef union packed {
 	struct packed {
 		logic       of; 
 		logic [5:0] s;   
-		logic [4:0] rs2;
-		logic [4:0] rs1;
+		logic [4:0] cmp_opB;
+		logic [4:0] cmp_opA;
 		logic [2:0] funct3;
 		logic [3:0] et; 
 		logic       f;  
@@ -105,8 +105,8 @@ typedef union packed {
 		logic [4:0] funct5;
 		logic       aq;
 		logic       rl;
-		logic [4:0] rs2;
-		logic [4:0] rs1;
+		logic [4:0] cmp_opB;
+		logic [4:0] cmp_opA;
 		logic [2:0] funct3;
 		logic [4:0] rd;
 		logic [6:0] opcode;
@@ -115,7 +115,7 @@ typedef union packed {
 `ifdef SYSTEM_EXT
 	struct packed {
 		logic [11:0] csr;
-		logic [4:0]  rs1;
+		logic [4:0]  cmp_opA;
 		logic [2:0]  funct3;
 		logic [4:0]  rd;
 		logic [6:0]  opcode;
@@ -140,7 +140,7 @@ typedef struct packed{
 	logic alu_1; 
 }FU_STATE_PACKET;
 
-typedef enum logic [`FU-1:0] {
+typedef enum logic [`SYS_FU_ADDR_WIDTH-1:0] {
 	ALU_1 = 0,
 	ALU_2 = 1, 
 	ALU_3 = 2,
@@ -158,8 +158,8 @@ typedef struct packed{
 	logic branch;
 } FU_FIFO_PACKET;
 
-/* OP select for different fu */
-typedef enum logic[`OP-1:0] {
+/* SYS_OP_NUM select for different fu */
+typedef enum logic[`SYS_OP_NUM-1:0] {
 	ALU_ADD = 0,
 	ALU_SUB,
 	ALU_SLT,
@@ -175,14 +175,14 @@ typedef enum logic[`OP-1:0] {
         SW
 } ALU_SELECT;
 
-typedef enum logic[`OP-1:0]{
+typedef enum logic[`SYS_OP_NUM-1:0]{
 	MULT,
 	MULH,
 	MULHSU,
 	MULHU
 } MULT_SELECT;
 
-typedef enum logic [`OP-1:0]{ 
+typedef enum logic [`SYS_OP_NUM-1:0]{ 
 	UNCOND,
 	BEQ,
 	BNE,
@@ -192,7 +192,7 @@ typedef enum logic [`OP-1:0]{
 	BGEU
 } BR_SELECT;
 
-typedef enum logic[`OP-1:0]{
+typedef enum logic[`SYS_OP_NUM-1:0]{
     LB,
     LH,
     LW,
@@ -254,65 +254,65 @@ typedef enum logic [1:0] {
 typedef struct packed {
 	logic valid; 		// If low, the data in this struct is garbage
         INST  inst;  		// fetched instruction out
-	logic [`XLEN-1:0] NPC;  // PC + 4
-	logic [`XLEN-1:0] PC;   // PC
-	logic                predict_direction;
-        logic [`XLEN-1:0]    predict_pc;
+	logic [`SYS_XLEN-1:0] NPC;  // PC + 4
+	logic [`SYS_XLEN-1:0] PC;   // PC
+	logic                bp_pred_taken;
+        logic [`SYS_XLEN-1:0]    bp_pred_target;
 } IF_ID_PACKET;
 
 // ID2RS
 typedef struct packed {
     logic               valid; 
-    FU_SELECT           fu_sel;
-    OP_SELECT           op_sel;
-    logic [`XLEN-1:0]   NPC;   // PC + 4
-    logic [`XLEN-1:0]   PC;    // PC
-    ALU_OPA_SELECT      opa_select; // ALU opa mux select 
-    ALU_OPB_SELECT      opb_select; // ALU opb mux select 
+    FU_SELECT           dec_fu_unit_sel;
+    OP_SELECT           dec_fu_opcode;
+    logic [`SYS_XLEN-1:0]   NPC;   // PC + 4
+    logic [`SYS_XLEN-1:0]   PC;    // PC
+    ALU_OPA_SELECT      dec_operandA_mux; // ALU opa mux select 
+    ALU_OPB_SELECT      dec_operandB_mux; // ALU opb mux select 
     INST          	inst;
     logic               halt;         
-    logic [`ROB-1:0] 	rob_entry;
-    logic [`LSQ-1:0]	sq_tail; 
-    logic [`PR-1:0]     dest_pr;
-    logic [`PR-1:0]     reg1_pr;
-    logic               reg1_ready;
-    logic [`PR-1:0]     reg2_pr;
-    logic               reg2_ready;
+    logic [`SYS_ROB_ADDR_WIDTH-1:0] 	rob_entry;
+    logic [`SYS_LSQ_ADDR_WIDTH-1:0]	sq_tail; 
+    logic [`SYS_PHYS_REG-1:0]     dispatch_allocated_prs;
+    logic [`SYS_PHYS_REG-1:0]     dispatch_src1_pr;
+    logic               dispatch_src1_rdy;
+    logic [`SYS_PHYS_REG-1:0]     dispatch_src2_pr;
+    logic               dispatch_src2_rdy;
 } RS_IN_PACKET;
 
 // RS2IS
 typedef struct packed {
     logic               valid;
-    FU_SELECT           fu_sel;
-    OP_SELECT           op_sel;
-    logic [`XLEN-1:0]   NPC;   // PC + 4
-    logic [`XLEN-1:0]   PC;    // PC
-    ALU_OPA_SELECT      opa_select; // ALU opa mux select 
-    ALU_OPB_SELECT      opb_select; // ALU opb mux select
+    FU_SELECT           dec_fu_unit_sel;
+    OP_SELECT           dec_fu_opcode;
+    logic [`SYS_XLEN-1:0]   NPC;   // PC + 4
+    logic [`SYS_XLEN-1:0]   PC;    // PC
+    ALU_OPA_SELECT      dec_operandA_mux; // ALU opa mux select 
+    ALU_OPB_SELECT      dec_operandB_mux; // ALU opb mux select
     INST          	inst;
     logic               halt;          
-    logic [`ROB-1:0] 	rob_entry;
-    logic [`LSQ-1:0]	sq_tail;
-    logic [`PR-1:0]     dest_pr;
-    logic [`PR-1:0]     reg1_pr;
-    logic [`PR-1:0]     reg2_pr;
+    logic [`SYS_ROB_ADDR_WIDTH-1:0] 	rob_entry;
+    logic [`SYS_LSQ_ADDR_WIDTH-1:0]	sq_tail;
+    logic [`SYS_PHYS_REG-1:0]     dispatch_allocated_prs;
+    logic [`SYS_PHYS_REG-1:0]     dispatch_src1_pr;
+    logic [`SYS_PHYS_REG-1:0]     dispatch_src2_pr;
 } RS_S_PACKET;
 
 // IS2FU
 typedef struct packed{
 	logic 			valid;
-	OP_SELECT		op_sel;
-	logic [`XLEN-1:0]   	NPC;   // PC + 4
-        logic [`XLEN-1:0]       PC;    // PC
-	ALU_OPA_SELECT          opa_select; // ALU opa mux select 
-        ALU_OPB_SELECT          opb_select; // ALU opb mux select 
+	OP_SELECT		dec_fu_opcode;
+	logic [`SYS_XLEN-1:0]   	NPC;   // PC + 4
+        logic [`SYS_XLEN-1:0]       PC;    // PC
+	ALU_OPA_SELECT          dec_operandA_mux; // ALU opa mux select 
+        ALU_OPB_SELECT          dec_operandB_mux; // ALU opb mux select 
 	INST          		inst;
 	logic 			halt;
-	logic [`ROB-1:0] 	rob_entry;
-	logic [`LSQ-1:0]	sq_tail;
-	logic [`PR-1:0] 	dest_pr;
-	logic [`XLEN-1:0]	r1_value;
-	logic [`XLEN-1:0] 	r2_value;
+	logic [`SYS_ROB_ADDR_WIDTH-1:0] 	rob_entry;
+	logic [`SYS_LSQ_ADDR_WIDTH-1:0]	sq_tail;
+	logic [`SYS_PHYS_REG-1:0] 	dispatch_allocated_prs;
+	logic [`SYS_XLEN-1:0]	r1_value;
+	logic [`SYS_XLEN-1:0] 	r2_value;
 } ISSUE_FU_PACKET;
 
 // FU2COMPLETE
@@ -320,22 +320,22 @@ typedef struct packed{
 	logic if_take_branch;
 	logic valid;
 	logic halt; 
-	logic [`XLEN-1:0] target_pc;
-	logic [`PR-1:0]   dest_pr;
-	logic [`XLEN-1:0] dest_value;
-	logic [`ROB-1:0]  rob_entry;
+	logic [`SYS_XLEN-1:0] cs_retire_pc;
+	logic [`SYS_PHYS_REG-1:0]   dispatch_allocated_prs;
+	logic [`SYS_XLEN-1:0] dest_value;
+	logic [`SYS_ROB_ADDR_WIDTH-1:0]  rob_entry;
 } FU_COMPLETE_PACKET;
 
 // EX2MEM
 typedef struct packed {
-	logic [`XLEN-1:0] alu_result; 	// alu_result
-	logic [`XLEN-1:0] NPC; 		//pc + 4
-	logic             take_branch;  // is this a taken branch?
+	logic [`SYS_XLEN-1:0] alu_exec_result; 	// alu_exec_result
+	logic [`SYS_XLEN-1:0] NPC; 		//pc + 4
+	logic             icache_branch;  // is this a taken branch?
 	//pass throughs from decode stage
-	logic [`XLEN-1:0] rs2_value;
+	logic [`SYS_XLEN-1:0] rs2_value;
 	logic             rd_mem, wr_mem;
 	logic [4:0]       dest_reg_idx;
-	logic             halt, illegal, csr_op, valid;
+	logic             halt, dec_illegal_flag, csr_op, valid;
 	logic [2:0]       mem_size; 	// byte, half-word or word
 } EX_MEM_PACKET;
 
@@ -347,65 +347,65 @@ typedef struct packed {
 
 // OTHER MODULE
 typedef struct packed{
-    logic [`PR-1:0] t0;
-    logic [`PR-1:0] t1;
-    logic [`PR-1:0] t2;
+    logic [`SYS_PHYS_REG-1:0] t0;
+    logic [`SYS_PHYS_REG-1:0] t1;
+    logic [`SYS_PHYS_REG-1:0] t2;
  }CDB_T_PACKET;
 
 typedef struct packed {
-	logic [`XLEN-1:0]   NPC;   // PC + 4
-        logic [`XLEN-1:0]   PC;    // PC
+	logic [`SYS_XLEN-1:0]   NPC;   // PC + 4
+        logic [`SYS_XLEN-1:0]   PC;    // PC
 	logic 		    valid;
-	logic [`PR-1:0]     Tnew;
-	logic [`PR-1:0]     Told;
+	logic [`SYS_PHYS_REG-1:0]     Tnew;
+	logic [`SYS_PHYS_REG-1:0]     Told;
 	logic 		    halt;
 	logic [4:0] 	    arch_reg;
 	logic 		    precise_state_need;
-	logic 		    is_store; 
-	logic [`XLEN-1:0]   target_pc;
+	logic 		    dec_is_store_flag; 
+	logic [`SYS_XLEN-1:0]   cs_retire_pc;
 	logic 		    completed;
-	logic [`XLEN-1:0]   inst;
-	logic               predict_direction;
-        logic [`XLEN-1:0]   predict_pc;
+	logic [`SYS_XLEN-1:0]   inst;
+	logic               bp_pred_taken;
+        logic [`SYS_XLEN-1:0]   bp_pred_target;
 } ROB_ENTRY_PACKET;
 
 typedef struct packed {
     logic                   ready;
     logic [3:0]             usebytes;
-    logic [`XLEN-1:0]       addr; // must be aligned with words
-    logic [`XLEN-1:0]       data;
+    logic [`SYS_XLEN-1:0]       addr; // must be aligned with words
+    logic [`SYS_XLEN-1:0]       data;
 } SQ_ENTRY_PACKET;
 
 typedef struct packed {
-	logic		    stall;
+	logic		    lsq_stall_mask;
 	logic [3:0]	    usebytes;
-	logic [`XLEN-1:0]   data;
+	logic [`SYS_XLEN-1:0]   data;
 } SQ_LOAD_PACKET;
 
 typedef struct packed {
-	logic [`LSQ-1:0]    tail_pos; // the tail position when load is dispatched
-	logic [`XLEN-1:0]   addr; // must align with word! 
+	logic [`SYS_LSQ_ADDR_WIDTH-1:0]    lsq_tail_alloc; // the fl_tail_reg position when load is dispatched
+	logic [`SYS_XLEN-1:0]   addr; // must align with word! 
 } LOAD_SQ_PACKET;
 
 typedef struct packed{
      logic [3:0]            usebytes;
-     logic [`XLEN-1:0]      addr; // must be aligned with words
-     logic [`XLEN-1:0]      data;
+     logic [`SYS_XLEN-1:0]      addr; // must be aligned with words
+     logic [`SYS_XLEN-1:0]      data;
 } CACHE_IN_PACKET;
 
 typedef struct packed{
     logic [3:0]             validbtyes;
     logic                   addr_ready;
     logic [3:0]		    tag;
-    logic [`XLEN-1:0]       addr; // must be aligned with words
-    logic [`XLEN-1:0]       data;
+    logic [`SYS_XLEN-1:0]       addr; // must be aligned with words
+    logic [`SYS_XLEN-1:0]       data;
 } LQ_ENTRY_PACKET;
 
 typedef struct packed {
 	logic               valid;
-	logic [`XLEN-1:0]   tag;
+	logic [`SYS_XLEN-1:0]   tag;
 	BP_STATE	    direction;
-	logic [`XLEN-1:0]   target_pc;
+	logic [`SYS_XLEN-1:0]   cs_retire_pc;
 	logic		    uncondition;
 } BP_ENTRY_PACKET;
 
@@ -415,15 +415,15 @@ typedef struct packed {
 //					    //
 //////////////////////////////////////////////
 
-`define CACHE_MODE //removes the byte-level interface from the memory mode, DO NOT MODIFY!
-`define NUM_MEM_TAGS           15
+`define SYS_MODE_CACHE //removes the byte-level interface from the memory mode, DO NOT MODIFY!
+`define SYS_MEM_TAGS_NUM           15
 
-`define MEM_SIZE_IN_BYTES      (64*1024)
-`define MEM_64BIT_LINES        (`MEM_SIZE_IN_BYTES/8)
+`define SYS_MEM_BYTES      (64*1024)
+`define SYS_MEM_64B        (`SYS_MEM_BYTES/8)
 
-`define VERILOG_CLOCK_PERIOD   `CLOCK_PERIOD
+`define SYS_CLK   `CLOCK_PERIOD
 
-`define MEM_LATENCY_IN_CYCLES (100.0/`CLOCK_PERIOD+0.49999)
+`define SYS_MEM_LAT (100.0/`CLOCK_PERIOD+0.49999)
 // the 0.49999 is to force ceiling(100/period).  The default behavior for
 // float to integer conversion is rounding to nearest
 
@@ -434,13 +434,13 @@ typedef union packed {
 } EXAMPLE_CACHE_BLOCK;
 
 typedef struct packed{
-	logic [`XLEN-1:0]	addr;  // must be double-aligned
+	logic [`SYS_XLEN-1:0]	addr;  // must be double-aligned
 	logic [1:0]		command;
 	logic [3:0]		mem_tag;
 	logic 			left_or_right;  //If 1, left 4 bytes, if 0, right 4 bytes.
 	logic [63:0]		data;
 	logic 			issued;
-	logic [1:0]		broadcast_fu;
+	logic [1:0]		exs_dcache_brdcast_mask;
 	logic [7:0]		usebytes;
 	logic 			dirty;
 } MHSRS_ENTRY_PACKET;
@@ -452,7 +452,7 @@ typedef enum logic [1:0] {
 	BUS_STORE    = 2'h2
 } BUS_COMMAND;
 
-`ifndef CACHE_MODE
+`ifndef SYS_MODE_CACHE
 typedef enum logic [1:0] {
 	BYTE = 2'h0,
 	HALF = 2'h1,

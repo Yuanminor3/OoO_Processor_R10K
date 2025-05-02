@@ -3,79 +3,79 @@
 
 module issue_stage_tb;
 
-  // Clock and reset
-  logic clock;
-  logic reset;
+  // Clock and rst
+  logic clk;
+  logic rst;
 
   // Inputs
-  RS_S_PACKET [2:0] is_packet_in;
-  ISSUE_FU_PACKET [2:0] issue_fu_packet;
+  RS_S_PACKET [2:0] iss_rs_in_pkts;
+  ISSUE_FU_PACKET [2:0] iss_issue_in_pkts;
   FU_STATE_PACKET fu_ready_is;
 
   // Outputs
   FU_FIFO_PACKET fu_fifo_stall;
-  ISSUE_FU_PACKET [2**`FU-1:0] is_fu_packet;
+  ISSUE_FU_PACKET [2**`SYS_FU_ADDR_WIDTH-1:0] iss_issued_fu_pkts;
 
   // Instantiate DUT (Device Under Test)
   issue_stage dut (
-    .clock(clock),
-    .reset(reset),
-    .is_packet_in(is_packet_in),
-    .issue_fu_packet(issue_fu_packet),
+    .clk(clk),
+    .rst(rst),
+    .iss_rs_in_pkts(iss_rs_in_pkts),
+    .iss_issue_in_pkts(iss_issue_in_pkts),
     .fu_ready_is(fu_ready_is),
     .fu_fifo_stall(fu_fifo_stall),
-    .is_fu_packet(is_fu_packet)
+    .iss_issued_fu_pkts(iss_issued_fu_pkts)
   );
 
   // Clock generation
   initial begin
-    clock = 0;
-    forever #5 clock = ~clock;  // 100MHz clock
+    clk = 0;
+    forever #5 clk = ~clk;  // 100MHz clk
   end
 
   // Test process
   initial begin
     // Initialize
-    reset = 1;
-    is_packet_in = '{default: 0};
-    issue_fu_packet = '{default: 0};
+    rst = 1;
+    iss_rs_in_pkts = '{default: 0};
+    iss_issue_in_pkts = '{default: 0};
     fu_ready_is = '{default: 0};
-    @(posedge clock);
-    @(posedge clock);
-    reset = 0;
+    @(posedge clk);
+    @(posedge clk);
+    rst = 0;
 
     // Step 1: Input some packets
-    is_packet_in[0].fu_sel = ALU_1;
-    is_packet_in[1].fu_sel = MULT_1;
-    is_packet_in[2].fu_sel = LS_1;
+    iss_rs_in_pkts[0].dec_fu_unit_sel = ALU_1;
+    iss_rs_in_pkts[1].dec_fu_unit_sel = MULT_1;
+    iss_rs_in_pkts[2].dec_fu_unit_sel = LS_1;
 
-    issue_fu_packet[0].valid = 1;
-    issue_fu_packet[0].PC = 32'hAAAA_AAAA;
+    iss_issue_in_pkts[0].valid = 1;
+    iss_issue_in_pkts[0].PC = 32'hAAAA_AAAA;
 
-    issue_fu_packet[1].valid = 1;
-    issue_fu_packet[1].PC = 32'hBBBB_BBBB;
+    iss_issue_in_pkts[1].valid = 1;
+    iss_issue_in_pkts[1].PC = 32'hBBBB_BBBB;
 
-    issue_fu_packet[2].valid = 1;
-    issue_fu_packet[2].PC = 32'hCCCC_CCCC;
+    iss_issue_in_pkts[2].valid = 1;
+    iss_issue_in_pkts[2].PC = 32'hCCCC_CCCC;
 
-    // FU is ready to accept
+    // SYS_FU_ADDR_WIDTH is ready to accept
     fu_ready_is.alu_1 = 1;
     fu_ready_is.mult_1 = 1;
     fu_ready_is.loadstore_1 = 1;
 
-    @(posedge clock);
-    @(posedge clock);
+    @(posedge clk);
+    @(posedge clk);
 
     // Step 2: Check outputs
-    if (is_fu_packet[ALU_1].valid !== 1 || is_fu_packet[ALU_1].PC !== 32'hAAAA_AAAA) begin
+    if (iss_issued_fu_pkts[ALU_1].valid !== 1 || iss_issued_fu_pkts[ALU_1].PC !== 32'hAAAA_AAAA) begin
       $display("FAILED: ALU_1 output incorrect");
       $finish;
     end
-    if (is_fu_packet[MULT_1].valid !== 1 || is_fu_packet[MULT_1].PC !== 32'hBBBB_BBBB) begin
+    if (iss_issued_fu_pkts[MULT_1].valid !== 1 || iss_issued_fu_pkts[MULT_1].PC !== 32'hBBBB_BBBB) begin
       $display("FAILED: MULT_1 output incorrect");
       $finish;
     end
-    if (is_fu_packet[LS_1].valid !== 1 || is_fu_packet[LS_1].PC !== 32'hCCCC_CCCC) begin
+    if (iss_issued_fu_pkts[LS_1].valid !== 1 || iss_issued_fu_pkts[LS_1].PC !== 32'hCCCC_CCCC) begin
       $display("FAILED: LS_1 output incorrect");
       $finish;
     end

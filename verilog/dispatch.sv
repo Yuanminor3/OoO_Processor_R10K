@@ -11,95 +11,95 @@ module dispatch_stage (
     //================================
     //        Input Packets
     //================================
-    input IF_ID_PACKET [2:0] dis_packet_in,
+    input IF_ID_PACKET [2:0] dispatch_if_pkts,
 
     //================================
     //        Free Register Allocation
     //================================
-    input [2:0][`PR-1:0] free_pr_in,  // Free physical registers from Free List
+    input [2:0][`SYS_PHYS_REG-1:0] dispatch_free_prs,  // Free physical registers from Free List
 
     //================================
     //        Map Table Lookup
     //================================
-    input [2:0][`PR-1:0] reg1_pr,     // PR mapping for reg1
-    input [2:0][`PR-1:0] reg2_pr,     // PR mapping for reg2
-    input [2:0] reg1_ready,           // reg1 ready status
-    input [2:0] reg2_ready,           // reg2 ready status
-    input [2:0][`PR-1:0] maptable_old_pr, // Old physical register mapping for destination
+    input [2:0][`SYS_PHYS_REG-1:0] dispatch_src1_pr,     // SYS_PHYS_REG mapping for dec_src1_reg
+    input [2:0][`SYS_PHYS_REG-1:0] dispatch_src2_pr,     // SYS_PHYS_REG mapping for dec_src2_reg
+    input [2:0] dispatch_src1_rdy,           // dec_src1_reg ready status
+    input [2:0] dispatch_src2_rdy,           // dec_src2_reg ready status
+    input [2:0][`SYS_PHYS_REG-1:0] dispatch_oldprs, // Old physical register mapping for destination
 
     //================================
-    //        ROB Info
+    //        SYS_ROB_ADDR_WIDTH Info
     //================================
-    input [2:0][`ROB-1:0] rob_index,  // Allocated ROB index for dispatched instructions
+    input [2:0][`SYS_ROB_ADDR_WIDTH-1:0] dispatch_idx,  // Allocated SYS_ROB_ADDR_WIDTH index for dispatched instructions
 
     //================================
     //        SQ Info
     //================================
-    input [2:0][`LSQ-1:0] sq_tail_pos, // Store Queue tail pointer position
+    input [2:0][`SYS_LSQ_ADDR_WIDTH-1:0] dispatch_pointer_tail, // Store Queue fl_tail_reg pointer position
 
     /* Dispatch Stall */
-    input logic [2:0] d_stall,          // Stall signals per instruction
+    input logic [2:0] dispatch_stall_mask,          // Stall signals per instruction
 
     //================================
     //        Outputs
     //================================
 
     /* RS Allocation */
-    output RS_IN_PACKET [2:0] rs_in, 
+    output RS_IN_PACKET [2:0] dispatch_rs_pkts, 
 
-    /* ROB Allocation */
-    output ROB_ENTRY_PACKET [2:0] rob_in,
+    /* SYS_ROB_ADDR_WIDTH Allocation */
+    output ROB_ENTRY_PACKET [2:0] dispatch_rob_pkts,
 
     /* Free Register Control */
-    output logic [2:0] new_pr_en,        // New PR allocation enable
-    output logic [2:0][`PR-1:0] maptable_new_pr, // New PR for destination arch reg
-    output logic [2:0][4:0] maptable_ar, // Destination architectural reg
+    output logic [2:0] dispatch_pr_allocEN,        // New SYS_PHYS_REG allocation enable
+    output logic [2:0][`SYS_PHYS_REG-1:0] dispatch_pr_alloc_tags, // New SYS_PHYS_REG for destination arch reg
+    output logic [2:0][4:0] dispatch_arch_regs, // Destination architectural reg
 
     /* Map Table Lookup */
-    output logic [2:0][4:0] reg1_ar,     // Source register 1 (arch reg)
-    output logic [2:0][4:0] reg2_ar,     // Source register 2 (arch reg)
+    output logic [2:0][4:0] dispatch_src1_arch_regs,     // Source register 1 (arch reg)
+    output logic [2:0][4:0] dispatch_src2_arch_regs,     // Source register 2 (arch reg)
 
     /* SQ Allocation */
-    output logic [2:0] sq_alloc,         // Store Queue allocation signal
+    output logic [2:0] dispatch_sq_flags,         // Store Queue allocation signal
 
-    output 	FU_SELECT [2:0] fu_sel_out,
-    output IF_ID_PACKET [2:0] dis_packet_out
+    output 	FU_SELECT [2:0] dispatc_unit_sel,
+    output IF_ID_PACKET [2:0] dispatch_if_pkts_out
 
 );
 
 // Internal signals
-IF_ID_PACKET [2:0] dis_packet;
+IF_ID_PACKET [2:0] dispatch_pkt_buffer;
 logic [2:0] halt;
-logic [2:0] is_store;
-FU_SELECT [2:0] fu_sel;
-OP_SELECT [2:0] op_sel;
-ALU_OPA_SELECT [2:0] opa_select;
-ALU_OPB_SELECT [2:0] opb_select;
-logic [2:0][4:0] dest_arch, reg1_arch, reg2_arch;
-logic [2:0][`PR-1:0] dest_pr;
+logic [2:0] dec_is_store_flag;
+FU_SELECT [2:0] dec_fu_unit_sel;
+OP_SELECT [2:0] dec_fu_opcode;
+ALU_OPA_SELECT [2:0] dec_operandA_mux;
+ALU_OPB_SELECT [2:0] dec_operandB_mux;
+logic [2:0][4:0] dispatch_dest_regs, dispatch_src1_arch_regs_local, dispatch_src2_arch_regs_local;
+logic [2:0][`SYS_PHYS_REG-1:0] dispatch_allocated_prs;
 
-assign fu_sel_out = fu_sel;
-assign dis_packet_out = dis_packet;
+assign dispatc_unit_sel = dec_fu_unit_sel;
+assign dispatch_if_pkts_out = dispatch_pkt_buffer;
 //to do --> change to for loop
 
 always_comb begin
-    dis_packet = dis_packet_in;
+    dispatch_pkt_buffer = dispatch_if_pkts;
 
     for (int i = 2; i >= 0; i--) begin
         if (i == 2) begin
-            dis_packet[i].valid = dis_packet_in[i].valid && !d_stall[i];
+            dispatch_pkt_buffer[i].valid = dispatch_if_pkts[i].valid && !dispatch_stall_mask[i];
         end
         else if (i == 1) begin
-            if (dis_packet_in[2].predict_direction)
-                dis_packet[i].valid = 0;
+            if (dispatch_if_pkts[2].bp_pred_taken)
+                dispatch_pkt_buffer[i].valid = 0;
             else
-                dis_packet[i].valid = dis_packet_in[i].valid && !d_stall[i];
+                dispatch_pkt_buffer[i].valid = dispatch_if_pkts[i].valid && !dispatch_stall_mask[i];
         end
         else if (i == 0) begin
-            if (dis_packet_in[2].predict_direction || dis_packet_in[1].predict_direction)
-                dis_packet[i].valid = 0;
+            if (dispatch_if_pkts[2].bp_pred_taken || dispatch_if_pkts[1].bp_pred_taken)
+                dispatch_pkt_buffer[i].valid = 0;
             else
-                dis_packet[i].valid = dis_packet_in[i].valid && !d_stall[i];
+                dispatch_pkt_buffer[i].valid = dispatch_if_pkts[i].valid && !dispatch_stall_mask[i];
         end
     end
 end
@@ -107,110 +107,110 @@ end
 // Decode each instruction
 // (Each decoder outputs ALU control, dest reg, src regs, etc.)
 decoder decode_0(
-    .if_packet(dis_packet[0]),
-    .fu_sel(fu_sel[0]), .op_sel(op_sel[0]),
-    .opa_select(opa_select[0]), .opb_select(opb_select[0]),
-    .dest_reg(dest_arch[0]), .reg1(reg1_arch[0]), .reg2(reg2_arch[0]),
-    .halt(halt[0]), .is_store(is_store[0])
+    .decode_pkt(dispatch_pkt_buffer[0]),
+    .dec_fu_unit_sel(dec_fu_unit_sel[0]), .dec_fu_opcode(dec_fu_opcode[0]),
+    .dec_operandA_mux(dec_operandA_mux[0]), .dec_operandB_mux(dec_operandB_mux[0]),
+    .dec_dst_arch_reg(dispatch_dest_regs[0]), .dec_src1_reg(dispatch_src1_arch_regs_local[0]), .dec_src2_reg(dispatch_src2_arch_regs_local[0]),
+    .halt(halt[0]), .dec_is_store_flag(dec_is_store_flag[0])
 );
 decoder decode_1(
-    .if_packet(dis_packet[1]),
-    .fu_sel(fu_sel[1]), .op_sel(op_sel[1]),
-    .opa_select(opa_select[1]), .opb_select(opb_select[1]),
-    .dest_reg(dest_arch[1]), .reg1(reg1_arch[1]), .reg2(reg2_arch[1]),
-    .halt(halt[1]), .is_store(is_store[1])
+    .decode_pkt(dispatch_pkt_buffer[1]),
+    .dec_fu_unit_sel(dec_fu_unit_sel[1]), .dec_fu_opcode(dec_fu_opcode[1]),
+    .dec_operandA_mux(dec_operandA_mux[1]), .dec_operandB_mux(dec_operandB_mux[1]),
+    .dec_dst_arch_reg(dispatch_dest_regs[1]), .dec_src1_reg(dispatch_src1_arch_regs_local[1]), .dec_src2_reg(dispatch_src2_arch_regs_local[1]),
+    .halt(halt[1]), .dec_is_store_flag(dec_is_store_flag[1])
 );
 decoder decode_2(
-    .if_packet(dis_packet[2]),
-    .fu_sel(fu_sel[2]), .op_sel(op_sel[2]),
-    .opa_select(opa_select[2]), .opb_select(opb_select[2]),
-    .dest_reg(dest_arch[2]), .reg1(reg1_arch[2]), .reg2(reg2_arch[2]),
-    .halt(halt[2]), .is_store(is_store[2])
+    .decode_pkt(dispatch_pkt_buffer[2]),
+    .dec_fu_unit_sel(dec_fu_unit_sel[2]), .dec_fu_opcode(dec_fu_opcode[2]),
+    .dec_operandA_mux(dec_operandA_mux[2]), .dec_operandB_mux(dec_operandB_mux[2]),
+    .dec_dst_arch_reg(dispatch_dest_regs[2]), .dec_src1_reg(dispatch_src1_arch_regs_local[2]), .dec_src2_reg(dispatch_src2_arch_regs_local[2]),
+    .halt(halt[2]), .dec_is_store_flag(dec_is_store_flag[2])
 );
 
 always_comb begin
     for (int i = 0; i < 3; i++) begin
-        new_pr_en[i]       = dis_packet[i].valid && (dest_arch[i] != `ZERO_REG);
-        dest_pr[i]         = new_pr_en[i] ? free_pr_in[i] : `ZERO_REG;
-        maptable_ar[i]     = dis_packet[i].valid ? dest_arch[i] : `ZERO_REG;
-        maptable_new_pr[i] = dest_pr[i];
+        dispatch_pr_allocEN[i]       = dispatch_pkt_buffer[i].valid && (dispatch_dest_regs[i] != `SYS_ZERO_ARCH_REG);
+        dispatch_allocated_prs[i]         = dispatch_pr_allocEN[i] ? dispatch_free_prs[i] : `SYS_ZERO_ARCH_REG;
+        dispatch_arch_regs[i]     = dispatch_pkt_buffer[i].valid ? dispatch_dest_regs[i] : `SYS_ZERO_ARCH_REG;
+        dispatch_pr_alloc_tags[i] = dispatch_allocated_prs[i];
     end
 end
 
 
-assign reg1_ar = reg1_arch;
-assign reg2_ar = reg2_arch;
+assign dispatch_src1_arch_regs = dispatch_src1_arch_regs_local;
+assign dispatch_src2_arch_regs = dispatch_src2_arch_regs_local;
 
 // Allocate store queue entries
 always_comb begin
-    sq_alloc = 0;
+    dispatch_sq_flags = 0;
     for (int i = 0; i < 3; i++) begin
-        if (is_store[i] && dis_packet[i].valid)
-            sq_alloc[i] = 1;
+        if (dec_is_store_flag[i] && dispatch_pkt_buffer[i].valid)
+            dispatch_sq_flags[i] = 1;
     end
 end
 
-// Fill ROB entries
+// Fill SYS_ROB_ADDR_WIDTH entries
 always_comb begin
     for (int i = 0; i < 3; i++) begin
-        rob_in[i].NPC              = dis_packet[i].NPC;
-        rob_in[i].PC               = dis_packet[i].PC;
-        rob_in[i].valid            = dis_packet[i].valid;
-        rob_in[i].Tnew             = dest_pr[i];
-        rob_in[i].Told             = maptable_old_pr[i];
-        rob_in[i].halt             = halt[i];
-        rob_in[i].arch_reg         = dest_arch[i];
-        rob_in[i].completed        = 0;
-        rob_in[i].precise_state_need = 0;
-        rob_in[i].is_store         = is_store[i];
-        rob_in[i].target_pc        = 0;
-        rob_in[i].inst             = dis_packet[i].inst;
+        dispatch_rob_pkts[i].NPC              = dispatch_pkt_buffer[i].NPC;
+        dispatch_rob_pkts[i].PC               = dispatch_pkt_buffer[i].PC;
+        dispatch_rob_pkts[i].valid            = dispatch_pkt_buffer[i].valid;
+        dispatch_rob_pkts[i].Tnew             = dispatch_allocated_prs[i];
+        dispatch_rob_pkts[i].Told             = dispatch_oldprs[i];
+        dispatch_rob_pkts[i].halt             = halt[i];
+        dispatch_rob_pkts[i].arch_reg         = dispatch_dest_regs[i];
+        dispatch_rob_pkts[i].completed        = 0;
+        dispatch_rob_pkts[i].precise_state_need = 0;
+        dispatch_rob_pkts[i].dec_is_store_flag         = dec_is_store_flag[i];
+        dispatch_rob_pkts[i].cs_retire_pc        = 0;
+        dispatch_rob_pkts[i].inst             = dispatch_pkt_buffer[i].inst;
     end
 end
 
 always_comb begin
     // Packet 2: always included
-    rob_in[2].predict_direction = dis_packet[2].predict_direction;
-    rob_in[2].predict_pc        = dis_packet[2].predict_direction ? dis_packet[2].predict_pc : '0;
+    dispatch_rob_pkts[2].bp_pred_taken = dispatch_pkt_buffer[2].bp_pred_taken;
+    dispatch_rob_pkts[2].bp_pred_target        = dispatch_pkt_buffer[2].bp_pred_taken ? dispatch_pkt_buffer[2].bp_pred_target : '0;
 
     // Packet 1: only included if packet 2 is not taken
-    if (!dis_packet[2].predict_direction) begin
-        rob_in[1].predict_direction = dis_packet[1].predict_direction;
-        rob_in[1].predict_pc        = dis_packet[1].predict_direction ? dis_packet[1].predict_pc : '0;
+    if (!dispatch_pkt_buffer[2].bp_pred_taken) begin
+        dispatch_rob_pkts[1].bp_pred_taken = dispatch_pkt_buffer[1].bp_pred_taken;
+        dispatch_rob_pkts[1].bp_pred_target        = dispatch_pkt_buffer[1].bp_pred_taken ? dispatch_pkt_buffer[1].bp_pred_target : '0;
     end else begin
-        rob_in[1].predict_direction = '0;
-        rob_in[1].predict_pc        = '0;
+        dispatch_rob_pkts[1].bp_pred_taken = '0;
+        dispatch_rob_pkts[1].bp_pred_target        = '0;
     end
 
     // Packet 0: only included if packet 2 and 1 are not taken
-    if (!dis_packet[2].predict_direction && !dis_packet[1].predict_direction) begin
-        rob_in[0].predict_direction = dis_packet[0].predict_direction;
-        rob_in[0].predict_pc        = dis_packet[0].predict_direction ? dis_packet[0].predict_pc : '0;
+    if (!dispatch_pkt_buffer[2].bp_pred_taken && !dispatch_pkt_buffer[1].bp_pred_taken) begin
+        dispatch_rob_pkts[0].bp_pred_taken = dispatch_pkt_buffer[0].bp_pred_taken;
+        dispatch_rob_pkts[0].bp_pred_target        = dispatch_pkt_buffer[0].bp_pred_taken ? dispatch_pkt_buffer[0].bp_pred_target : '0;
     end else begin
-        rob_in[0].predict_direction = '0;
-        rob_in[0].predict_pc        = '0;
+        dispatch_rob_pkts[0].bp_pred_taken = '0;
+        dispatch_rob_pkts[0].bp_pred_target        = '0;
     end
 end
 
 // Fill RS entries
 always_comb begin
     for (int i = 0; i < 3; i++) begin
-        rs_in[i].valid        = dis_packet[i].valid;
-        rs_in[i].fu_sel       = fu_sel[i];
-        rs_in[i].op_sel       = op_sel[i];
-        rs_in[i].NPC          = dis_packet[i].NPC;
-        rs_in[i].PC           = dis_packet[i].PC;
-        rs_in[i].opa_select   = opa_select[i];
-        rs_in[i].opb_select   = opb_select[i];
-        rs_in[i].inst         = dis_packet[i].inst;
-        rs_in[i].halt         = halt;
-        rs_in[i].rob_entry    = rob_index[i];
-        rs_in[i].sq_tail      = sq_tail_pos[i];
-        rs_in[i].dest_pr      = dest_pr[i];
-        rs_in[i].reg1_pr      = reg1_pr[i];
-        rs_in[i].reg1_ready   = reg1_ready[i];
-        rs_in[i].reg2_pr      = reg2_pr[i];
-        rs_in[i].reg2_ready   = reg2_ready[i];
+        dispatch_rs_pkts[i].valid        = dispatch_pkt_buffer[i].valid;
+        dispatch_rs_pkts[i].dec_fu_unit_sel       = dec_fu_unit_sel[i];
+        dispatch_rs_pkts[i].dec_fu_opcode       = dec_fu_opcode[i];
+        dispatch_rs_pkts[i].NPC          = dispatch_pkt_buffer[i].NPC;
+        dispatch_rs_pkts[i].PC           = dispatch_pkt_buffer[i].PC;
+        dispatch_rs_pkts[i].dec_operandA_mux   = dec_operandA_mux[i];
+        dispatch_rs_pkts[i].dec_operandB_mux   = dec_operandB_mux[i];
+        dispatch_rs_pkts[i].inst         = dispatch_pkt_buffer[i].inst;
+        dispatch_rs_pkts[i].halt         = halt;
+        dispatch_rs_pkts[i].rob_entry    = dispatch_idx[i];
+        dispatch_rs_pkts[i].sq_tail      = dispatch_pointer_tail[i];
+        dispatch_rs_pkts[i].dispatch_allocated_prs      = dispatch_allocated_prs[i];
+        dispatch_rs_pkts[i].dispatch_src1_pr      = dispatch_src1_pr[i];
+        dispatch_rs_pkts[i].dispatch_src1_rdy   = dispatch_src1_rdy[i];
+        dispatch_rs_pkts[i].dispatch_src2_pr      = dispatch_src2_pr[i];
+        dispatch_rs_pkts[i].dispatch_src2_rdy   = dispatch_src2_rdy[i];
     end
 end
 

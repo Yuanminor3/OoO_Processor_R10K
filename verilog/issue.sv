@@ -5,147 +5,147 @@
 `include "verilog/sys_defs.svh"
 
 module issue_stage(
-    input                               clock,
-    input                               reset,
-    input       RS_S_PACKET [2:0]       is_packet_in,
-    input       ISSUE_FU_PACKET [2:0]   issue_fu_packet,
+    input                               clk,
+    input                               rst,
+    input       RS_S_PACKET [2:0]       iss_rs_in_pkts,
+    input       ISSUE_FU_PACKET [2:0]   iss_issue_in_pkts,
     input       FU_STATE_PACKET 	fu_ready_is,
     output      FU_FIFO_PACKET		fu_fifo_stall,
-    output      ISSUE_FU_PACKET [2**`FU-1:0] is_fu_packet
+    output      ISSUE_FU_PACKET [2**`SYS_FU_ADDR_WIDTH-1:0] iss_issued_fu_pkts
 );
 
 // assign packet to fu fifo
-ISSUE_FU_PACKET [2:0]   alu_fifo_in;
-ISSUE_FU_PACKET [2:0]   mult_fifo_in;
-ISSUE_FU_PACKET [2:0]   ls_fifo_in;
-ISSUE_FU_PACKET [2:0]   br_fifo_in;
+ISSUE_FU_PACKET [2:0]   iss_alu_fifo_push_pkts;
+ISSUE_FU_PACKET [2:0]   iss_mult_fifo_push_pkts;
+ISSUE_FU_PACKET [2:0]   iss_ls_fifo_push_pkts;
+ISSUE_FU_PACKET [2:0]   iss_br_fifo_push_pkts;
 always_comb begin
-    alu_fifo_in = 0;
-    mult_fifo_in = 0;
-    ls_fifo_in = 0;
-    br_fifo_in = 0;
+    iss_alu_fifo_push_pkts = 0;
+    iss_mult_fifo_push_pkts = 0;
+    iss_ls_fifo_push_pkts = 0;
+    iss_br_fifo_push_pkts = 0;
     for(int i=0; i<3; i++) begin
-        alu_fifo_in[i] = is_packet_in[i].fu_sel == ALU_1 ? issue_fu_packet[i]:0;
-        mult_fifo_in[i] = is_packet_in[i].fu_sel == MULT_1 ? issue_fu_packet[i]:0;
-        ls_fifo_in[i] = is_packet_in[i].fu_sel == LS_1 ? issue_fu_packet[i]:0;
-        br_fifo_in[i] = is_packet_in[i].fu_sel == BRANCH ? issue_fu_packet[i]:0;
+        iss_alu_fifo_push_pkts[i] = iss_rs_in_pkts[i].dec_fu_unit_sel == ALU_1 ? iss_issue_in_pkts[i]:0;
+        iss_mult_fifo_push_pkts[i] = iss_rs_in_pkts[i].dec_fu_unit_sel == MULT_1 ? iss_issue_in_pkts[i]:0;
+        iss_ls_fifo_push_pkts[i] = iss_rs_in_pkts[i].dec_fu_unit_sel == LS_1 ? iss_issue_in_pkts[i]:0;
+        iss_br_fifo_push_pkts[i] = iss_rs_in_pkts[i].dec_fu_unit_sel == BRANCH ? iss_issue_in_pkts[i]:0;
     end
 end
-ISSUE_FU_PACKET [3:0] issue_waste;
+ISSUE_FU_PACKET [3:0] iss_fifo_drop_pkts;
 
 fu_FIFO_3 alu_fifo(
-    .clock(clock),
-    .reset(reset),
-    .fu_pckt_in(alu_fifo_in),
-    .rd_EN({fu_ready_is.alu_1, fu_ready_is.alu_2, fu_ready_is.alu_3}),
-    //.full(fifo_full[0]),
-    .almost_full(fu_fifo_stall.alu),
-    .fu_pckt_out({is_fu_packet[ALU_1], is_fu_packet[ALU_2], is_fu_packet[ALU_3]})
+    .clk(clk),
+    .rst(rst),
+    .fu_pckt_in(iss_alu_fifo_push_pkts),
+    .fifo3_read_en_mask({fu_ready_is.alu_1, fu_ready_is.alu_2, fu_ready_is.alu_3}),
+    //.fl_buffer_full(fifo_full[0]),
+    .fifo3_almost_full(fu_fifo_stall.alu),
+    .fu_pckt_out({iss_issued_fu_pkts[ALU_1], iss_issued_fu_pkts[ALU_2], iss_issued_fu_pkts[ALU_3]})
    
 );
 
 fu_FIFO_3 ls_fifo(
-    .clock(clock),
-    .reset(reset ),
-    .fu_pckt_in(ls_fifo_in),
-    .rd_EN({fu_ready_is.loadstore_1, fu_ready_is.loadstore_2, 1'b0}),
-    //.full(fifo_full[1]),
-    .almost_full(fu_fifo_stall.ls),
-    .fu_pckt_out({is_fu_packet[LS_1], is_fu_packet[LS_2], issue_waste[0]})
+    .clk(clk),
+    .rst(rst ),
+    .fu_pckt_in(iss_ls_fifo_push_pkts),
+    .fifo3_read_en_mask({fu_ready_is.loadstore_1, fu_ready_is.loadstore_2, 1'b0}),
+    //.fl_buffer_full(fifo_full[1]),
+    .fifo3_almost_full(fu_fifo_stall.ls),
+    .fu_pckt_out({iss_issued_fu_pkts[LS_1], iss_issued_fu_pkts[LS_2], iss_fifo_drop_pkts[0]})
 
 );
 
 fu_FIFO_3 mult_fifo(
-    .clock(clock),
-    .reset(reset ),
-    .fu_pckt_in(mult_fifo_in),
-    .rd_EN({fu_ready_is.mult_1, fu_ready_is.mult_2, 1'b0}),
-    //.full(fifo_full[2]),
-    .almost_full(fu_fifo_stall.mult),
-    .fu_pckt_out({is_fu_packet[MULT_1], is_fu_packet[MULT_2], issue_waste[1]})
+    .clk(clk),
+    .rst(rst ),
+    .fu_pckt_in(iss_mult_fifo_push_pkts),
+    .fifo3_read_en_mask({fu_ready_is.mult_1, fu_ready_is.mult_2, 1'b0}),
+    //.fl_buffer_full(fifo_full[2]),
+    .fifo3_almost_full(fu_fifo_stall.mult),
+    .fu_pckt_out({iss_issued_fu_pkts[MULT_1], iss_issued_fu_pkts[MULT_2], iss_fifo_drop_pkts[1]})
 
 );
 
 fu_FIFO_3 br_fifo(
-    .clock(clock),
-    .reset(reset ),
-    .fu_pckt_in(br_fifo_in),
-    .rd_EN({fu_ready_is.branch, 2'b0}),
-    //.full(fifo_full[3]),
-    .almost_full(fu_fifo_stall.branch),
-    .fu_pckt_out({is_fu_packet[BRANCH], issue_waste[3:2]})
+    .clk(clk),
+    .rst(rst ),
+    .fu_pckt_in(iss_br_fifo_push_pkts),
+    .fifo3_read_en_mask({fu_ready_is.branch, 2'b0}),
+    //.fl_buffer_full(fifo_full[3]),
+    .fifo3_almost_full(fu_fifo_stall.branch),
+    .fu_pckt_out({iss_issued_fu_pkts[BRANCH], iss_fifo_drop_pkts[3:2]})
 
 );
 
 endmodule
 
-module fu_FIFO_3 #(parameter FIFO_DEPTH=`IS_FIFO_DEPTH)(
-    input                       clock,
-    input                       reset,
+module fu_FIFO_3 #(parameter FIFO_DEPTH=`SYS_IS_FIFO_DEPTH)(
+    input                       clk,
+    input                       rst,
     input ISSUE_FU_PACKET[2:0]  fu_pckt_in,
-    input [2:0]                 rd_EN,
-    //output logic                full,
-    output logic                almost_full,
+    input [2:0]                 fifo3_read_en_mask,
+    //output logic                fl_buffer_full,
+    output logic                fifo3_almost_full,
     output ISSUE_FU_PACKET[2:0] fu_pckt_out
 
 );
 /* sync registers */
-ISSUE_FU_PACKET [FIFO_DEPTH-1:0] fifo_entries;
-logic [$clog2(FIFO_DEPTH)-1:0] tail;
+ISSUE_FU_PACKET [FIFO_DEPTH-1:0] fifo3_entry;
+logic [$clog2(FIFO_DEPTH)-1:0] fl_tail_reg;
 
 /* write count and EN */
-logic [2:0] wr_EN;
-logic [1:0]     wr_count;
+logic [2:0] fifo3_write_en_mask;
+logic [1:0]     fifo3_wr_cnt;
 always_comb begin
     for(int i=0; i<3; i++) begin
-        wr_EN[i] = fu_pckt_in[i].valid;
+        fifo3_write_en_mask[i] = fu_pckt_in[i].valid;
     end
 end
-assign wr_count = wr_EN[0] + wr_EN[1] + wr_EN[2];
+assign fifo3_wr_cnt = fifo3_write_en_mask[0] + fifo3_write_en_mask[1] + fifo3_write_en_mask[2];
 
     // --------------------------
     // Reorder input
     // --------------------------
-    ISSUE_FU_PACKET [2:0] fifo_push;
+    ISSUE_FU_PACKET [2:0] fifo3_reordered;
 
     always_comb begin
-        fifo_push = '{default: 0};
-        unique case (wr_EN)
-            3'b001: fifo_push[2]       = fu_pckt_in[0];
-            3'b010: fifo_push[2]       = fu_pckt_in[1];
-            3'b011: fifo_push[2:1]     = fu_pckt_in[1:0];
-            3'b100: fifo_push[2]       = fu_pckt_in[2];
+        fifo3_reordered = '{default: 0};
+        unique case (fifo3_write_en_mask)
+            3'b001: fifo3_reordered[2]       = fu_pckt_in[0];
+            3'b010: fifo3_reordered[2]       = fu_pckt_in[1];
+            3'b011: fifo3_reordered[2:1]     = fu_pckt_in[1:0];
+            3'b100: fifo3_reordered[2]       = fu_pckt_in[2];
             3'b101: begin
-                        fifo_push[2]   = fu_pckt_in[2];
-                        fifo_push[1]   = fu_pckt_in[0];
+                        fifo3_reordered[2]   = fu_pckt_in[2];
+                        fifo3_reordered[1]   = fu_pckt_in[0];
                     end
-            3'b110: fifo_push[2:1]     = fu_pckt_in[2:1];
-            3'b111: fifo_push          = fu_pckt_in;
-            default: fifo_push         = '{default: 0};
+            3'b110: fifo3_reordered[2:1]     = fu_pckt_in[2:1];
+            3'b111: fifo3_reordered          = fu_pckt_in;
+            default: fifo3_reordered         = '{default: 0};
         endcase
     end
 
     // --------------------------
     // Tail Calculation
     // --------------------------
-    logic [$clog2(FIFO_DEPTH):0] tail_next;
+    logic [$clog2(FIFO_DEPTH):0] fl_tail_nxt;
 
-    assign tail_next    = tail + wr_count;
-    //assign full         = (tail_next >= FIFO_DEPTH);
-    assign almost_full  = (tail_next + 3 >= FIFO_DEPTH);
+    assign fl_tail_nxt    = fl_tail_reg + fifo3_wr_cnt;
+    //assign fl_buffer_full         = (fl_tail_nxt >= FIFO_DEPTH);
+    assign fifo3_almost_full  = (fl_tail_nxt + 3 >= FIFO_DEPTH);
 
     // --------------------------
     // Write to FIFO (tentative)
     // --------------------------
-ISSUE_FU_PACKET [FIFO_DEPTH-1+3:0] fifo_entries_next;
+ISSUE_FU_PACKET [FIFO_DEPTH-1+3:0] fifo3_entry_nxt;
 always_comb begin
-    fifo_entries_next = 0;
-    fifo_entries_next[FIFO_DEPTH-1:0] = fifo_entries;
+    fifo3_entry_nxt = 0;
+    fifo3_entry_nxt[FIFO_DEPTH-1:0] = fifo3_entry;
     for(int i=0; i<FIFO_DEPTH; i++) begin
-        if (i == tail) begin
-            fifo_entries_next[i] = fifo_push[2];
-            fifo_entries_next[i+1] = fifo_push[1];
-            fifo_entries_next[i+2] = fifo_push[0];
+        if (i == fl_tail_reg) begin
+            fifo3_entry_nxt[i] = fifo3_reordered[2];
+            fifo3_entry_nxt[i+1] = fifo3_reordered[1];
+            fifo3_entry_nxt[i+2] = fifo3_reordered[0];
         end
     end
     
@@ -154,50 +154,50 @@ end
     // --------------------------
     // Read FIFO
     // --------------------------
-    logic [1:0] rd_count;
-    logic [2:0] valid_out;
+    logic [1:0] fifo3_rd_cnt;
+    logic [2:0] fifo3_valid_mask;
 
     always_comb begin
         fu_pckt_out = '{default: 0};
-        unique case (rd_EN)
-            3'b001: fu_pckt_out[0]     = fifo_entries_next[0];
-            3'b010: fu_pckt_out[1]     = fifo_entries_next[0];
-            3'b011: fu_pckt_out[1:0]   = fifo_entries_next[1:0];
-            3'b100: fu_pckt_out[2]     = fifo_entries_next[0];
+        unique case (fifo3_read_en_mask)
+            3'b001: fu_pckt_out[0]     = fifo3_entry_nxt[0];
+            3'b010: fu_pckt_out[1]     = fifo3_entry_nxt[0];
+            3'b011: fu_pckt_out[1:0]   = fifo3_entry_nxt[1:0];
+            3'b100: fu_pckt_out[2]     = fifo3_entry_nxt[0];
             3'b101: begin
-                        fu_pckt_out[0] = fifo_entries_next[0];
-                        fu_pckt_out[2] = fifo_entries_next[1];
+                        fu_pckt_out[0] = fifo3_entry_nxt[0];
+                        fu_pckt_out[2] = fifo3_entry_nxt[1];
                     end
-            3'b110: fu_pckt_out[2:1]   = fifo_entries_next[1:0];
-            3'b111: fu_pckt_out        = fifo_entries_next[2:0];
+            3'b110: fu_pckt_out[2:1]   = fifo3_entry_nxt[1:0];
+            3'b111: fu_pckt_out        = fifo3_entry_nxt[2:0];
             default: fu_pckt_out       = '{default: 0};
         endcase
     end
 
     always_comb begin
         for (int i = 0; i < 3; i++) begin
-            valid_out[i] = fu_pckt_out[i].valid;
+            fifo3_valid_mask[i] = fu_pckt_out[i].valid;
         end
     end
 
-assign rd_count = valid_out[0] + valid_out[1] + valid_out[2];
+assign fifo3_rd_cnt = fifo3_valid_mask[0] + fifo3_valid_mask[1] + fifo3_valid_mask[2];
 
     // --------------------------
     // FIFO Shift
     // --------------------------
     ISSUE_FU_PACKET [FIFO_DEPTH-1:0] fifo_entries_shifted;
-    logic [$clog2(FIFO_DEPTH)-1:0]   tail_shifted;
+    logic [$clog2(FIFO_DEPTH)-1:0]   fifo3_shift_tail;
 
-    assign tail_shifted = (tail_next > rd_count) ? (tail_next - rd_count) : 0;
+    assign fifo3_shift_tail = (fl_tail_nxt > fifo3_rd_cnt) ? (fl_tail_nxt - fifo3_rd_cnt) : 0;
 
     always_comb begin
         fifo_entries_shifted = '{default: 0};
         for (int i = 0; i < FIFO_DEPTH; i++) begin
-            case (rd_count)
-                2'd3: fifo_entries_shifted[i] = fifo_entries_next[i+3];
-                2'd2: fifo_entries_shifted[i] = fifo_entries_next[i+2];
-                2'd1: fifo_entries_shifted[i] = fifo_entries_next[i+1];
-                default: fifo_entries_shifted[i] = fifo_entries_next[i];
+            case (fifo3_rd_cnt)
+                2'd3: fifo_entries_shifted[i] = fifo3_entry_nxt[i+3];
+                2'd2: fifo_entries_shifted[i] = fifo3_entry_nxt[i+2];
+                2'd1: fifo_entries_shifted[i] = fifo3_entry_nxt[i+1];
+                default: fifo_entries_shifted[i] = fifo3_entry_nxt[i];
             endcase
         end
     end
@@ -205,13 +205,13 @@ assign rd_count = valid_out[0] + valid_out[1] + valid_out[2];
     // --------------------------
     // Sync Update
     // --------------------------
-    always_ff @(posedge clock) begin
-        if (reset) begin
-            fifo_entries <= `SD '{default: 0};
-            tail         <= `SD '0;
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            fifo3_entry <= `SYS_SMALL_DELAY '{default: 0};
+            fl_tail_reg         <= `SYS_SMALL_DELAY '0;
         end else begin
-            fifo_entries <= `SD fifo_entries_shifted;
-            tail         <= `SD tail_shifted;
+            fifo3_entry <= `SYS_SMALL_DELAY fifo_entries_shifted;
+            fl_tail_reg         <= `SYS_SMALL_DELAY fifo3_shift_tail;
         end
     end
 

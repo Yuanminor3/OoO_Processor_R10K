@@ -10,36 +10,36 @@
 
 module fu_load_tb;
 
-  logic clock, reset;
-  logic complete_stall;
-  ISSUE_FU_PACKET fu_packet_in;
-  logic fu_ready, want_to_complete;
-  FU_COMPLETE_PACKET fu_packet_out;
-  LOAD_SQ_PACKET sq_lookup;
-  SQ_LOAD_PACKET sq_result;
-  logic [`XLEN-1:0] addr;
-  logic cache_read_EN;
-  logic [`XLEN-1:0] cache_data_in;
-  logic is_hit;
+  logic clk, rst;
+  logic bs_hazard;
+  ISSUE_FU_PACKET bs_in_pkt;
+  logic rsb_fu_ready, fum_complete_req;
+  FU_COMPLETE_PACKET bs_out_pkt;
+  LOAD_SQ_PACKET ld_sq_request;
+  SQ_LOAD_PACKET ld_sq_response;
+  logic [`SYS_XLEN-1:0] addr;
+  logic ld_cache_read_enable;
+  logic [`SYS_XLEN-1:0] ld_cache_data_in;
+  logic exs_dcache_hit_flags;
   logic broadcast_en;
-  logic [`XLEN-1:0] broadcast_data;
+  logic [`SYS_XLEN-1:0] exs_dcache_brdcast_data;
 
   fu_load dut (
-    .clock(clock),
-    .reset(reset),
-    .complete_stall(complete_stall),
-    .fu_packet_in(fu_packet_in),
-    .fu_ready(fu_ready),
-    .want_to_complete(want_to_complete),
-    .fu_packet_out(fu_packet_out),
-    .sq_lookup(sq_lookup),
-    .sq_result(sq_result),
+    .clk(clk),
+    .rst(rst),
+    .bs_hazard(bs_hazard),
+    .bs_in_pkt(bs_in_pkt),
+    .rsb_fu_ready(rsb_fu_ready),
+    .fum_complete_req(fum_complete_req),
+    .bs_out_pkt(bs_out_pkt),
+    .ld_sq_request(ld_sq_request),
+    .ld_sq_response(ld_sq_response),
     .addr(addr),
-    .cache_read_EN(cache_read_EN),
-    .cache_data_in(cache_data_in),
-    .is_hit(is_hit),
+    .ld_cache_read_enable(ld_cache_read_enable),
+    .ld_cache_data_in(ld_cache_data_in),
+    .exs_dcache_hit_flags(exs_dcache_hit_flags),
     .broadcast_en(broadcast_en),
-    .broadcast_data(broadcast_data)
+    .exs_dcache_brdcast_data(exs_dcache_brdcast_data)
   );
 
   int pass_count = 0;
@@ -47,71 +47,71 @@ module fu_load_tb;
   int total_count = 0;
 
   // Clock generation
-  always #5 clock = ~clock;
+  always #5 clk = ~clk;
 
   task run_load_test(
     input LS_SELECT load_type,
-    input [`XLEN-1:0] base_addr,
-    input [`XLEN-1:0] fake_cache_data,
-    input [`XLEN-1:0] expected_value,
+    input [`SYS_XLEN-1:0] base_addr,
+    input [`SYS_XLEN-1:0] fake_cache_data,
+    input [`SYS_XLEN-1:0] expected_value,
     input string test_name
   );
     begin
       // Step 1: Set up load instruction
-      fu_packet_in.valid = 1;
-      fu_packet_in.op_sel.ls = load_type;
-      fu_packet_in.opa_select = OPA_IS_RS1;
-      fu_packet_in.opb_select = OPB_IS_I_IMM;
-      fu_packet_in.r1_value = base_addr;
-      fu_packet_in.inst = 32'b0;
-      fu_packet_in.dest_pr = 5'd1;
-      fu_packet_in.rob_entry = 5'd2;
-      sq_result = '0;
-      complete_stall = 0;
+      bs_in_pkt.valid = 1;
+      bs_in_pkt.dec_fu_opcode.ls = load_type;
+      bs_in_pkt.dec_operandA_mux = OPA_IS_RS1;
+      bs_in_pkt.dec_operandB_mux = OPB_IS_I_IMM;
+      bs_in_pkt.r1_value = base_addr;
+      bs_in_pkt.inst = 32'b0;
+      bs_in_pkt.dispatch_allocated_prs = 5'd1;
+      bs_in_pkt.rob_entry = 5'd2;
+      ld_sq_response = '0;
+      bs_hazard = 0;
 
-      @(posedge clock);
-      fu_packet_in.valid = 0;
+      @(posedge clk);
+      bs_in_pkt.valid = 0;
 
-      // Step 2: Simulate cache response after seeing cache_read_EN
-      @(posedge clock);
-      if (cache_read_EN) begin
-        cache_data_in <= fake_cache_data;
-        is_hit <= 1;
+      // Step 2: Simulate cache response after seeing ld_cache_read_enable
+      @(posedge clk);
+      if (ld_cache_read_enable) begin
+        ld_cache_data_in <= fake_cache_data;
+        exs_dcache_hit_flags <= 1;
       end
 
-      @(posedge clock);
-      is_hit <= 0;
+      @(posedge clk);
+      exs_dcache_hit_flags <= 0;
 
       // Step 3: Check result
-      @(posedge clock);
+      @(posedge clk);
       total_count++;
-      if (fu_packet_out.dest_value === expected_value) begin
-        $display("[PASS] %s | Got: 0x%h", test_name, fu_packet_out.dest_value);
+      if (bs_out_pkt.dest_value === expected_value) begin
+        $display("[PASS] %s | Got: 0x%h", test_name, bs_out_pkt.dest_value);
         pass_count++;
       end else begin
-        $display("[FAIL] %s | Got: 0x%h Expected: 0x%h", test_name, fu_packet_out.dest_value, expected_value);
+        $display("[FAIL] %s | Got: 0x%h Expected: 0x%h", test_name, bs_out_pkt.dest_value, expected_value);
         fail_count++;
       end
 
-      @(posedge clock);
+      @(posedge clk);
     end
   endtask
 
   initial begin
     // Initialize
-    clock = 0;
-    reset = 1;
-    fu_packet_in = '0;
-    sq_result = '0;
-    cache_data_in = '0;
-    is_hit = 0;
+    clk = 0;
+    rst = 1;
+    bs_in_pkt = '0;
+    ld_sq_response = '0;
+    ld_cache_data_in = '0;
+    exs_dcache_hit_flags = 0;
     broadcast_en = 0;
-    broadcast_data = 0;
+    exs_dcache_brdcast_data = 0;
 
     // Reset phase
-    repeat(2) @(posedge clock);
-    reset = 0;
-    @(posedge clock);
+    repeat(2) @(posedge clk);
+    rst = 0;
+    @(posedge clk);
 
     // Run tests
     run_load_test(LB,  32'h1000_0000, 32'h11223344, 32'h00000044, "LB load 0x44");

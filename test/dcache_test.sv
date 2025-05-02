@@ -3,54 +3,54 @@
 module dcache_tb;
 
   // Clock and Reset
-  logic clock;
-  logic reset;
+  logic clk;
+  logic rst;
 
   // Memory controller interface
   logic [3:0] Ctlr2proc_response;
   logic [63:0] Ctlr2proc_data;
   logic [3:0] Ctlr2proc_tag;
   
-  logic [1:0] dcache2ctlr_command;
-  logic [`XLEN-1:0] dcache2ctlr_addr;
-  logic [63:0] dcache2ctlr_data;
+  logic [1:0] mc_dc_cmd;
+  logic [`SYS_XLEN-1:0] mc_dc_addr;
+  logic [63:0] mc_dc_wr_data;
 
   // SQ interface
   SQ_ENTRY_PACKET [2:0] sq_in;
-  SQ_ENTRY_PACKET [2:0] sq_head;
-  logic [2:0] sq_stall;
+  SQ_ENTRY_PACKET [2:0] lsq_head_entry;
+  logic [2:0] rb_sq_stall;
 
   // LQ interface
-  logic [1:0][`XLEN-1:0] ld_addr_in;
+  logic [1:0][`SYS_XLEN-1:0] ld_addr_in;
   logic [1:0] ld_start;
-  logic [1:0] is_hit;
-  logic [1:0][`XLEN-1:0] ld_data;
-  logic [1:0] broadcast_fu;
-  logic [`XLEN-1:0] broadcast_data;
+  logic [1:0] exs_dcache_hit_flags;
+  logic [1:0][`SYS_XLEN-1:0] exs_dcache_resp_data;
+  logic [1:0] exs_dcache_brdcast_mask;
+  logic [`SYS_XLEN-1:0] exs_dcache_brdcast_data;
 
   // DUT instance
   dcache uut (
-    .clock(clock),
-    .reset(reset),
+    .clk(clk),
+    .rst(rst),
     .Ctlr2proc_response(Ctlr2proc_response),
     .Ctlr2proc_data(Ctlr2proc_data),
     .Ctlr2proc_tag(Ctlr2proc_tag),
-    .dcache2ctlr_command(dcache2ctlr_command),
-    .dcache2ctlr_addr(dcache2ctlr_addr),
-    .dcache2ctlr_data(dcache2ctlr_data),
+    .mc_dc_cmd(mc_dc_cmd),
+    .mc_dc_addr(mc_dc_addr),
+    .mc_dc_wr_data(mc_dc_wr_data),
     .sq_in(sq_in),
-    .sq_head(sq_head),
-    .sq_stall(sq_stall),
+    .lsq_head_entry(lsq_head_entry),
+    .rb_sq_stall(rb_sq_stall),
     .ld_addr_in(ld_addr_in),
     .ld_start(ld_start),
-    .is_hit(is_hit),
-    .ld_data(ld_data),
-    .broadcast_fu(broadcast_fu),
-    .broadcast_data(broadcast_data)
+    .exs_dcache_hit_flags(exs_dcache_hit_flags),
+    .exs_dcache_resp_data(exs_dcache_resp_data),
+    .exs_dcache_brdcast_mask(exs_dcache_brdcast_mask),
+    .exs_dcache_brdcast_data(exs_dcache_brdcast_data)
   );
 
   // Clock generation
-  always #5 clock = ~clock;
+  always #5 clk = ~clk;
 
   // Pass/fail flags
   int num_fail = 0;
@@ -63,17 +63,17 @@ module dcache_tb;
   endtask
 
   initial begin
-    clock = 0;
-    reset = 1;
+    clk = 0;
+    rst = 1;
     #10;
-    reset = 0;
+    rst = 0;
 
     // ---------------------- Test 1: Load Hit (after fill) ----------------------
     $display("Test 1: Load Miss -> Fill -> Load Hit");
 
     // No store yet
     sq_in = '{default:0};
-    sq_head = '{default:0};
+    lsq_head_entry = '{default:0};
 
     // First load, should MISS
     ld_addr_in[0] = 64'h0000_0000_0000_0000; // Address 0
@@ -85,7 +85,7 @@ module dcache_tb;
     ld_start[0] = 0;
     #10;
 
-    check("Load should miss initially", is_hit[0] == 0);
+    check("Load should miss initially", exs_dcache_hit_flags[0] == 0);
 
     // Simulate memory controller returning data for address 0
     Ctlr2proc_response = 4'd1;
@@ -100,8 +100,8 @@ module dcache_tb;
     #10;
     ld_start[0] = 0;
     #10;
-    check("Load should hit after refill", is_hit[0] == 1);
-    check("Load data correct", ld_data[0] == 64'hDEAD_BEEF);
+    check("Load should hit after refill", exs_dcache_hit_flags[0] == 1);
+    check("Load data correct", exs_dcache_resp_data[0] == 64'hDEAD_BEEF);
 
     // ---------------------- Test 2: Store Hit ----------------------
     $display("Test 2: Store Hit");
@@ -111,12 +111,12 @@ module dcache_tb;
     sq_in[0].data = 32'hAAAA_BBBB;
     sq_in[0].usebytes = 8'hFF;
     sq_in[0].ready = 1;
-    sq_head = sq_in;
+    lsq_head_entry = sq_in;
 
     #10;
 
     sq_in = '{default:0};
-    sq_head = '{default:0};
+    lsq_head_entry = '{default:0};
 
     // Load again after store, data not verified here (should forward ideally)
 
@@ -129,7 +129,7 @@ module dcache_tb;
     #10;
     ld_start[0] = 0;
     #10;
-    check("New Load should miss", is_hit[0] == 0);
+    check("New Load should miss", exs_dcache_hit_flags[0] == 0);
 
     // Simulate memory controller returning new data
     Ctlr2proc_response = 4'd2;

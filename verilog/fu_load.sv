@@ -11,158 +11,158 @@
 // ===============================================
 
 typedef struct packed {
-    logic [`LSQ-1:0]    tail_pos;
+    logic [`SYS_LSQ_ADDR_WIDTH-1:0]    lsq_tail_alloc;
     FU_COMPLETE_PACKET  result;
-    logic [`XLEN-1:0]   addr;
+    logic [`SYS_XLEN-1:0]   addr;
     LS_SELECT           load_sel;
     logic [3:0]		    usebytes, forward_bytes;
-    logic [`XLEN-1:0]   aligned_data;
-} LOAD_STAGE_REG;
+    logic [`SYS_XLEN-1:0]   aligned_data;
+} LD_STAGE_REGISTER;
 
 typedef enum logic [1:0] {
     WAITING_INPUT = 0,
     WAITING_SQ,
     WAITING_CACHE,
     WAITING_OUTPUT
-} LOAD_STAGE_STATUS;
+} LD_STAGE_STATE;
 
 module fu_load(
-    input                       clock,
-    input                       reset,
-    input                       complete_stall,
-    input ISSUE_FU_PACKET       fu_packet_in,
-    output logic                fu_ready,
-    output logic                want_to_complete,
-    output FU_COMPLETE_PACKET   fu_packet_out,
+    input                       clk,
+    input                       rst,
+    input                       bs_hazard,
+    input ISSUE_FU_PACKET       bs_in_pkt,
+    output logic                rsb_fu_ready,
+    output logic                fum_complete_req,
+    output FU_COMPLETE_PACKET   bs_out_pkt,
 
     // Interface to Store Queue (SQ)
-    output LOAD_SQ_PACKET       sq_lookup,
-    input SQ_LOAD_PACKET        sq_result,
+    output LOAD_SQ_PACKET       ld_sq_request,
+    input SQ_LOAD_PACKET        ld_sq_response,
 
     // Interface to Data Cache
-    output logic [`XLEN-1:0]    addr,
-    output logic                cache_read_EN,             
-    input [`XLEN-1:0]           cache_data_in,
-    input                       is_hit, // If hit, get the data from cache. If not, get from CDB
+    output logic [`SYS_XLEN-1:0]    addr,
+    output logic                ld_cache_read_enable,             
+    input [`SYS_XLEN-1:0]           ld_cache_data_in,
+    input                       exs_dcache_hit_flags, // If hit, get the data from cache. If not, get from CDB
     input                       broadcast_en,
-    input [`XLEN-1:0]           broadcast_data
+    input [`SYS_XLEN-1:0]           exs_dcache_brdcast_data
 );
 
 // Internal state
-LOAD_STAGE_STATUS status;
-LOAD_STAGE_REG ins_reg;
+LD_STAGE_STATE status;
+LD_STAGE_REGISTER ld_pipeline_reg;
 
 // Handle input readiness
-assign fu_ready = ~fu_packet_in.valid && (status == WAITING_INPUT);
+assign rsb_fu_ready = ~bs_in_pkt.valid && (status == WAITING_INPUT);
 
 // Calculate load address
-logic [`XLEN-1:0] new_addr;
-assign new_addr = fu_packet_in.r1_value + `RV32_signext_Iimm(fu_packet_in.inst);
+logic [`SYS_XLEN-1:0] ld_calc_addr;
+assign ld_calc_addr = bs_in_pkt.r1_value + `RV32_signext_Iimm(bs_in_pkt.inst);
 
 
 // Build output packet basic fields
-FU_COMPLETE_PACKET new_result_pckt;
+FU_COMPLETE_PACKET ld_initial_res_pkt;
 always_comb begin
-    new_result_pckt = 0;
-    new_result_pckt.valid = fu_packet_in.valid;
-    new_result_pckt.dest_pr = fu_packet_in.dest_pr;
-    new_result_pckt.rob_entry = fu_packet_in.rob_entry;
+    ld_initial_res_pkt = 0;
+    ld_initial_res_pkt.valid = bs_in_pkt.valid;
+    ld_initial_res_pkt.dispatch_allocated_prs = bs_in_pkt.dispatch_allocated_prs;
+    ld_initial_res_pkt.rob_entry = bs_in_pkt.rob_entry;
 end
 
 // Decode which bytes are needed from memory
-logic [3:0] new_usebytes;
+logic [3:0] ld_decode_usebytes;
 always_comb begin
-    unique case(fu_packet_in.op_sel.ls)
-    LB, LBU: new_usebytes = 4'b0001 << new_addr[1:0];
-    LH, LHU: new_usebytes = (new_addr[1]) ? 4'b1100 : 4'b0011;
-    LW: new_usebytes = 4'b1111;
-    default: new_usebytes = 4'b0000;
+    unique case(bs_in_pkt.dec_fu_opcode.ls)
+    LB, LBU: ld_decode_usebytes = 4'b0001 << ld_calc_addr[1:0];
+    LH, LHU: ld_decode_usebytes = (ld_calc_addr[1]) ? 4'b1100 : 4'b0011;
+    LW: ld_decode_usebytes = 4'b1111;
+    default: ld_decode_usebytes = 4'b0000;
     endcase
 end
 
 // Store Queue Lookup
-assign sq_lookup.addr = {ins_reg.addr[`XLEN-1:2], 2'b0};
-assign sq_lookup.tail_pos = ins_reg.tail_pos;
+assign ld_sq_request.addr = {ld_pipeline_reg.addr[`SYS_XLEN-1:2], 2'b0};
+assign ld_sq_request.lsq_tail_alloc = ld_pipeline_reg.lsq_tail_alloc;
 
 // Check if Store Queue can fully forward the requested load data
-logic [3:0] sq_forward_bytes = ins_reg.usebytes & sq_result.usebytes;
-logic sq_forward;
+logic [3:0] ld_sq_fwd_mask = ld_pipeline_reg.usebytes & ld_sq_response.usebytes;
+logic ld_sq_forward_ok;
 always_comb begin
-    if (sq_forward_bytes == ins_reg.usebytes) sq_forward = 1'b1;
-    else sq_forward = 1'b0;
+    if (ld_sq_fwd_mask == ld_pipeline_reg.usebytes) ld_sq_forward_ok = 1'b1;
+    else ld_sq_forward_ok = 1'b0;
 end
 
 // Cache Access
 integer i;
-assign addr = {ins_reg.addr[`XLEN-1:2], 2'b0};
-logic [`XLEN-1:0] cache_data, data_after_cache;
-assign cache_data = is_hit ? cache_data_in : 0;
+assign addr = {ld_pipeline_reg.addr[`SYS_XLEN-1:2], 2'b0};
+logic [`SYS_XLEN-1:0] ld_cache_fetched_data, data_after_cache;
+assign ld_cache_fetched_data = exs_dcache_hit_flags ? ld_cache_data_in : 0;
 // Merge forwarded bytes from SQ and cache data
 always_comb begin
-    data_after_cache = cache_data;
+    data_after_cache = ld_cache_fetched_data;
     for (i = 0; i < 4; i = i + 1) begin
-        if (ins_reg.forward_bytes[i]) data_after_cache[8*i +: 8] = ins_reg.aligned_data[8*i +: 8];
+        if (ld_pipeline_reg.forward_bytes[i]) data_after_cache[8*i +: 8] = ld_pipeline_reg.aligned_data[8*i +: 8];
     end
 end
 
 // Output value reconstruction (load data formatting)
-logic [`XLEN-1:0] wb_data;
+logic [`SYS_XLEN-1:0] wb_data;
 always_comb begin
     wb_data = 0;
-    case(ins_reg.load_sel)
-    LB: wb_data = {{24{ins_reg.aligned_data[8*ins_reg.addr[1:0] + 7]}}, ins_reg.aligned_data[8*ins_reg.addr[1:0] +: 8]};
-    LH: wb_data = ins_reg.addr[1] ? {{16{ins_reg.aligned_data[31]}}, ins_reg.aligned_data[31:16]} : {{16{ins_reg.aligned_data[15]}}, ins_reg.aligned_data[15:0]};
-    LW: wb_data = ins_reg.aligned_data;
-    LBU: wb_data[7:0] = ins_reg.aligned_data[8*ins_reg.addr[1:0] +: 8];
-    LHU: wb_data[15:0] = ins_reg.addr[1] ? ins_reg.aligned_data[31:16] : ins_reg.aligned_data[15:0];
+    case(ld_pipeline_reg.load_sel)
+    LB: wb_data = {{24{ld_pipeline_reg.aligned_data[8*ld_pipeline_reg.addr[1:0] + 7]}}, ld_pipeline_reg.aligned_data[8*ld_pipeline_reg.addr[1:0] +: 8]};
+    LH: wb_data = ld_pipeline_reg.addr[1] ? {{16{ld_pipeline_reg.aligned_data[31]}}, ld_pipeline_reg.aligned_data[31:16]} : {{16{ld_pipeline_reg.aligned_data[15]}}, ld_pipeline_reg.aligned_data[15:0]};
+    LW: wb_data = ld_pipeline_reg.aligned_data;
+    LBU: wb_data[7:0] = ld_pipeline_reg.aligned_data[8*ld_pipeline_reg.addr[1:0] +: 8];
+    LHU: wb_data[15:0] = ld_pipeline_reg.addr[1] ? ld_pipeline_reg.aligned_data[31:16] : ld_pipeline_reg.aligned_data[15:0];
     endcase
 end
 
 // Final complete packet with loaded data
 FU_COMPLETE_PACKET updated_result;
 always_comb begin
-    updated_result = ins_reg.result;
+    updated_result = ld_pipeline_reg.result;
     updated_result.dest_value = wb_data;
 end
 
-assign fu_packet_out = updated_result;
-assign want_to_complete = status == WAITING_OUTPUT;
+assign bs_out_pkt = updated_result;
+assign fum_complete_req = status == WAITING_OUTPUT;
 
 
 // Main sequential logic
-always_ff @(posedge clock) begin
-    if (reset) begin
-        ins_reg <= `SD 0;
-        status <= `SD WAITING_INPUT;
-        cache_read_EN <= `SD 0;
+always_ff @(posedge clk) begin
+    if (rst) begin
+        ld_pipeline_reg <= `SYS_SMALL_DELAY 0;
+        status <= `SYS_SMALL_DELAY WAITING_INPUT;
+        ld_cache_read_enable <= `SYS_SMALL_DELAY 0;
     end else begin
         // Default setting
-        cache_read_EN <= `SD 0;
+        ld_cache_read_enable <= `SYS_SMALL_DELAY 0;
         case (status)
         WAITING_INPUT: begin
-            status <= `SD fu_packet_in.valid && ~complete_stall ? WAITING_SQ : WAITING_INPUT;
-            ins_reg.result <= `SD new_result_pckt;
-            ins_reg.addr <= `SD new_addr;
-            ins_reg.tail_pos <= `SD fu_packet_in.sq_tail;
-            ins_reg.load_sel <= `SD fu_packet_in.op_sel.ls;
-            ins_reg.usebytes <= `SD new_usebytes;
-            ins_reg.forward_bytes <= `SD 0;
-            ins_reg.aligned_data <= `SD 0;
+            status <= `SYS_SMALL_DELAY bs_in_pkt.valid && ~bs_hazard ? WAITING_SQ : WAITING_INPUT;
+            ld_pipeline_reg.result <= `SYS_SMALL_DELAY ld_initial_res_pkt;
+            ld_pipeline_reg.addr <= `SYS_SMALL_DELAY ld_calc_addr;
+            ld_pipeline_reg.lsq_tail_alloc <= `SYS_SMALL_DELAY bs_in_pkt.sq_tail;
+            ld_pipeline_reg.load_sel <= `SYS_SMALL_DELAY bs_in_pkt.dec_fu_opcode.ls;
+            ld_pipeline_reg.usebytes <= `SYS_SMALL_DELAY ld_decode_usebytes;
+            ld_pipeline_reg.forward_bytes <= `SYS_SMALL_DELAY 0;
+            ld_pipeline_reg.aligned_data <= `SYS_SMALL_DELAY 0;
         end
         WAITING_SQ: begin
-            status <= `SD   sq_result.stall ? WAITING_SQ :
-                            sq_forward ? WAITING_OUTPUT
+            status <= `SYS_SMALL_DELAY   ld_sq_response.lsq_stall_mask ? WAITING_SQ :
+                            ld_sq_forward_ok ? WAITING_OUTPUT
                             : WAITING_CACHE;
-            ins_reg.forward_bytes <= `SD sq_result.usebytes;
-            ins_reg.aligned_data <= `SD sq_result.data;
-            if (~sq_result.stall && ~sq_forward) cache_read_EN <= `SD 1;
+            ld_pipeline_reg.forward_bytes <= `SYS_SMALL_DELAY ld_sq_response.usebytes;
+            ld_pipeline_reg.aligned_data <= `SYS_SMALL_DELAY ld_sq_response.data;
+            if (~ld_sq_response.lsq_stall_mask && ~ld_sq_forward_ok) ld_cache_read_enable <= `SYS_SMALL_DELAY 1;
         end
         WAITING_CACHE: begin
-            status <= `SD (!is_hit) ? WAITING_CACHE : WAITING_OUTPUT;
-            ins_reg.aligned_data <= `SD data_after_cache;
+            status <= `SYS_SMALL_DELAY (!exs_dcache_hit_flags) ? WAITING_CACHE : WAITING_OUTPUT;
+            ld_pipeline_reg.aligned_data <= `SYS_SMALL_DELAY data_after_cache;
         end
         WAITING_OUTPUT: begin
-            status <= `SD WAITING_INPUT;
+            status <= `SYS_SMALL_DELAY WAITING_INPUT;
         end
         endcase
     end

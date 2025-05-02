@@ -11,29 +11,29 @@
 `include "verilog/sys_defs.svh"
 
 module alu(
-	input [`XLEN-1:0]   opa,
-	input [`XLEN-1:0]   opb,
+	input [`SYS_XLEN-1:0]   opa,
+	input [`SYS_XLEN-1:0]   opb,
 	ALU_SELECT          func,
 
-	output logic [`XLEN-1:0] result
+	output logic [`SYS_XLEN-1:0] result
 );
-	wire signed [`XLEN-1:0] signed_opa, signed_opb;
-	assign signed_opa = opa;
-	assign signed_opb = opb;
+	wire signed [`SYS_XLEN-1:0] alu_operandA_signed, alu_operandB_signed;
+	assign alu_operandA_signed = opa;
+	assign alu_operandB_signed = opb;
 
 	always_comb begin
 		case (func)
 			ALU_ADD:      result = opa + opb;
 			ALU_SUB:      result = opa - opb;
 			ALU_AND:      result = opa & opb;
-			ALU_SLT:      result = signed_opa < signed_opb;
+			ALU_SLT:      result = alu_operandA_signed < alu_operandB_signed;
 			ALU_SLTU:     result = opa < opb;
 			ALU_OR:       result = opa | opb;
 			ALU_XOR:      result = opa ^ opb;
 			ALU_SRL:      result = opa >> opb[4:0];
 			ALU_SLL:      result = opa << opb[4:0];
-			ALU_SRA:      result = signed_opa >>> opb[4:0]; // arithmetic from logical shift
-			default:      result = `XLEN'hfacebeec;  // here to prevent latches
+			ALU_SRA:      result = alu_operandA_signed >>> opb[4:0]; // arithmetic from logical icache_shift
+			default:      result = `SYS_XLEN'hfacebeec;  // here to prevent latches
 		endcase
 	end
 endmodule // alu
@@ -41,51 +41,51 @@ endmodule // alu
 `timescale 1ns/100ps
 
 module fu_alu (
-    input  logic                  clock,
-    input  logic                  reset,
-    input  logic                  complete_stall,
-    input  ISSUE_FU_PACKET        fu_packet_in,
+    input  logic                  clk,
+    input  logic                  rst,
+    input  logic                  bs_hazard,
+    input  ISSUE_FU_PACKET        bs_in_pkt,
 
-    output logic                  fu_ready,
-    output logic                  want_to_complete,
-    output FU_COMPLETE_PACKET     fu_packet_out,
+    output logic                  rsb_fu_ready,
+    output logic                  fum_complete_req,
+    output FU_COMPLETE_PACKET     bs_out_pkt,
 
-    output logic                  if_store,
-    output SQ_ENTRY_PACKET        store_pckt,
-    output logic [`LSQ-1:0]       sq_idx
+    output logic                  alu_store_enable,
+    output SQ_ENTRY_PACKET        alu_store_output_entry,
+    output logic [`SYS_LSQ_ADDR_WIDTH-1:0]       alu_store_sq_index
 );
 
   // Operand MUX
-  logic [`XLEN-1:0] opa, opb;
-  ALU_SELECT alu_func;
-  logic [`XLEN-1:0] alu_result;
+  logic [`SYS_XLEN-1:0] opa, opb;
+  ALU_SELECT alu_operation_code;
+  logic [`SYS_XLEN-1:0] alu_exec_result;
 
   // Store detection
-  assign if_store = fu_packet_in.valid && (fu_packet_in.op_sel.alu inside {SB, SH, SW});
-  assign sq_idx   = fu_packet_in.sq_tail;
-  assign alu_func = if_store ? ALU_ADD : fu_packet_in.op_sel.alu;
+  assign alu_store_enable = bs_in_pkt.valid && (bs_in_pkt.dec_fu_opcode.alu inside {SB, SH, SW});
+  assign alu_store_sq_index   = bs_in_pkt.sq_tail;
+  assign alu_operation_code = alu_store_enable ? ALU_ADD : bs_in_pkt.dec_fu_opcode.alu;
 
   // opa selection
   always_comb begin
-    unique case (fu_packet_in.opa_select)
-      OPA_IS_RS1:   opa = fu_packet_in.r1_value;
-      OPA_IS_NPC:   opa = fu_packet_in.NPC;
-      OPA_IS_PC:    opa = fu_packet_in.PC;
+    unique case (bs_in_pkt.dec_operandA_mux)
+      OPA_IS_RS1:   opa = bs_in_pkt.r1_value;
+      OPA_IS_NPC:   opa = bs_in_pkt.NPC;
+      OPA_IS_PC:    opa = bs_in_pkt.PC;
       OPA_IS_ZERO:  opa = '0;
-      default:      opa = `XLEN'hDEADFACE;
+      default:      opa = `SYS_XLEN'hDEADFACE;
     endcase
   end
 
   // opb selection
   always_comb begin
-    unique case (fu_packet_in.opb_select)
-      OPB_IS_RS2:   opb = fu_packet_in.r2_value;
-      OPB_IS_I_IMM: opb = `RV32_signext_Iimm(fu_packet_in.inst);
-      OPB_IS_S_IMM: opb = `RV32_signext_Simm(fu_packet_in.inst);
-      OPB_IS_B_IMM: opb = `RV32_signext_Bimm(fu_packet_in.inst);
-      OPB_IS_U_IMM: opb = `RV32_signext_Uimm(fu_packet_in.inst);
-      OPB_IS_J_IMM: opb = `RV32_signext_Jimm(fu_packet_in.inst);
-      default:      opb = `XLEN'hF00DBEEF;
+    unique case (bs_in_pkt.dec_operandB_mux)
+      OPB_IS_RS2:   opb = bs_in_pkt.r2_value;
+      OPB_IS_I_IMM: opb = `RV32_signext_Iimm(bs_in_pkt.inst);
+      OPB_IS_S_IMM: opb = `RV32_signext_Simm(bs_in_pkt.inst);
+      OPB_IS_B_IMM: opb = `RV32_signext_Bimm(bs_in_pkt.inst);
+      OPB_IS_U_IMM: opb = `RV32_signext_Uimm(bs_in_pkt.inst);
+      OPB_IS_J_IMM: opb = `RV32_signext_Jimm(bs_in_pkt.inst);
+      default:      opb = `SYS_XLEN'hF00DBEEF;
     endcase
   end
 
@@ -93,50 +93,50 @@ module fu_alu (
   alu alu_unit (
     .opa   (opa),
     .opb   (opb),
-    .func  (alu_func),
-    .result(alu_result)
+    .func  (alu_operation_code),
+    .result(alu_exec_result)
   );
 
   // Complete packet result
   FU_COMPLETE_PACKET result;
   always_comb begin
-    result.valid         = fu_packet_in.valid;
-    result.halt          = fu_packet_in.halt;
+    result.valid         = bs_in_pkt.valid;
+    result.halt          = bs_in_pkt.halt;
     result.if_take_branch= 1'b0;
-    result.target_pc     = '0;
-    result.dest_pr       = fu_packet_in.dest_pr;
-    result.rob_entry     = fu_packet_in.rob_entry;
-    result.dest_value    = alu_result;
+    result.cs_retire_pc     = '0;
+    result.dispatch_allocated_prs       = bs_in_pkt.dispatch_allocated_prs;
+    result.rob_entry     = bs_in_pkt.rob_entry;
+    result.dest_value    = alu_exec_result;
   end
 
-  assign want_to_complete = fu_packet_in.valid;
-  assign fu_ready          = ~complete_stall;
-  assign fu_packet_out     = result;
+  assign fum_complete_req = bs_in_pkt.valid;
+  assign rsb_fu_ready          = ~bs_hazard;
+  assign bs_out_pkt     = result;
 
   // Store Packet
-  logic [`XLEN-1:0] store_val;
-  assign store_val = fu_packet_in.r2_value;
+  logic [`SYS_XLEN-1:0] alu_value_store;
+  assign alu_value_store = bs_in_pkt.r2_value;
 
   always_comb begin
-    store_pckt.addr  = {alu_result[`XLEN-1:2], 2'b00};
-    store_pckt.ready = 1'b1;
+    alu_store_output_entry.addr  = {alu_exec_result[`SYS_XLEN-1:2], 2'b00};
+    alu_store_output_entry.ready = 1'b1;
 
-    case (fu_packet_in.op_sel.alu)
+    case (bs_in_pkt.dec_fu_opcode.alu)
       SB: begin
-        store_pckt.usebytes = 4'b0001 << alu_result[1:0];
-        store_pckt.data     = {24'b0, store_val[7:0]} << (8 * alu_result[1:0]);
+        alu_store_output_entry.usebytes = 4'b0001 << alu_exec_result[1:0];
+        alu_store_output_entry.data     = {24'b0, alu_value_store[7:0]} << (8 * alu_exec_result[1:0]);
       end
       SH: begin
-        store_pckt.usebytes = (alu_result[1] == 1'b0) ? 4'b0011 : 4'b1100;
-        store_pckt.data     = {16'b0, store_val[15:0]} << (16 * alu_result[1]);
+        alu_store_output_entry.usebytes = (alu_exec_result[1] == 1'b0) ? 4'b0011 : 4'b1100;
+        alu_store_output_entry.data     = {16'b0, alu_value_store[15:0]} << (16 * alu_exec_result[1]);
       end
       SW: begin
-        store_pckt.usebytes = 4'b1111;
-        store_pckt.data     = store_val;
+        alu_store_output_entry.usebytes = 4'b1111;
+        alu_store_output_entry.data     = alu_value_store;
       end
       default: begin
-        store_pckt.usebytes = 4'b0000;
-        store_pckt.data     = '0;
+        alu_store_output_entry.usebytes = 4'b0000;
+        alu_store_output_entry.data     = '0;
       end
     endcase
   end

@@ -165,7 +165,7 @@
 
 //RV64I
 // The instructions that end with W indicates that it will only produce a 32 bit result
-// The only difference in shift is that there's an extra bit to the shift amount because
+// The only difference in icache_shift is that there's an extra bit to the icache_shift amount because
 // of increased register width
 `define RV64_LWU        `RV32_Itype(`RV32_LOAD, 3'b110)
 `define RV64_LD         `RV32_Itype(`RV32_LOAD, 3'b011)

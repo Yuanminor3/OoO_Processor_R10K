@@ -8,48 +8,48 @@
 `timescale 1ns/100ps
 
 module dcache_2way_16set(
-    // Clock and reset
-    input clock, 
-    input reset,
+    // Clock and rst
+    input clk, 
+    input rst,
     
     // Write Port 1 (from Store Queue hit)
-    input  [2:0] wr1_en,                   // Write enable for each port
-    input  [2:0][3:0] wr1_idx,             // 4-bit index
-    input  [2:0][8:0] wr1_tag,             // 9-bit tag
-    input  [2:0][63:0] wr1_data,           // Data to write
-    input  [2:0][7:0] used_bytes,          // Byte enable mask
-    input  [2:0] wr1_hit,                  // Indicates if write is a hit
+    input  [2:0] dc_sq_wrEN,                   // Write enable for each port
+    input  [2:0][3:0] dc_sq_wr_index,             // 4-bit index
+    input  [2:0][8:0] dc_sq_wr_id,             // 9-bit tag
+    input  [2:0][63:0] dc_sq_wr_data,           // Data to write
+    input  [2:0][7:0] dc_sq_wr_be,          // Byte enable mask
+    input  [2:0] dc_sq_wr_hit,                  // Indicates if write is a hit
     
     // Write Hit Check Port
-    input  [2:0][3:0] wrh_idx,             // 4-bit index
-    input  [2:0][8:0] wrh_tag,             // 9-bit tag
-    output logic [2:0] wrh_hit,            // Hit result (1 if hit)
+    input  [2:0][3:0] dc_wrchk_index,             // 4-bit index
+    input  [2:0][8:0] dc_wrchk_id,             // 9-bit tag
+    output logic [2:0] dc_wrchk_hit,            // Hit result (1 if hit)
     
     // Read Ports (for Load instructions)
-    input  [1:0][3:0] rd1_idx,             // 4-bit index
-    input  [1:0][8:0] rd1_tag,             // 9-bit tag
-    output logic [1:0][63:0] rd1_data,     // Read data output
-    output logic [1:0] rd1_valid,          // Read valid (1 if hit)
+    input  [1:0][3:0] dc_Id_index,             // 4-bit index
+    input  [1:0][8:0] dc_Id_id,             // 9-bit tag
+    output logic [1:0][63:0] dc_Id_data,     // Read data output
+    output logic [1:0] dc_Id_valid,          // Read valid (1 if hit)
     
     // Write-back Interface
-    output logic need_write_mem,           // 1 if eviction requires write-back
-    output logic [63:0] wb_mem_data,       // Data to write back to memory
-    output logic [`XLEN-1:0] wb_mem_addr,  // Address to write back
+    output logic dc_wb_valid,           // 1 if eviction requires write-back
+    output logic [63:0] dc_wb_data,       // Data to write back to memory
+    output logic [`SYS_XLEN-1:0] dc_wb_addr,  // Address to write back
     
     // Cache Refill Port (from Memory)
-    input        wr2_en,                   // Refill enable
-    input  [3:0] wr2_idx,                  // 4-bit index
-    input  [8:0] wr2_tag,                  // 9-bit tag
-    input  [63:0] wr2_data,                // Refill data
-    input  [7:0] wr2_usebytes,             // Refill byte mask
-    input        wr2_dirty,                // Refill dirty flag
+    input        dc_refillEN,                   // Refill enable
+    input  [3:0] dc_refill_index,                  // 4-bit index
+    input  [8:0] dc_refill_id,                  // 9-bit tag
+    input  [63:0] dc_refill_data,                // Refill data
+    input  [7:0] dc_refill_be,             // Refill byte mask
+    input        dc_refill_dir,                // Refill dirty flag
     
     // Debug Ports (for testing only)
     `ifdef TEST_MODE
-    output logic [1:0][15:0][63:0] cache_data_disp,  // Cache data per way
-    output logic [1:0][15:0][8:0]  cache_tags_disp,  // 9-bit tags per way
-    output logic [1:0][15:0]       valids_disp,      // Valid bits per way
-    output logic [1:0][15:0]       dirties_disp      // Dirty bits per way
+    output logic [1:0][15:0][63:0] dc_dbg_data,  // Cache data per way
+    output logic [1:0][15:0][8:0]  dc_dbg_tag,  // 9-bit tags per way
+    output logic [1:0][15:0]       dc_dbg_valid,      // Valid bits per way
+    output logic [1:0][15:0]       dc_dbg_dir      // Dirty bits per way
     `endif 
 );
 
@@ -60,7 +60,7 @@ module dcache_2way_16set(
     parameter NUM_SETS = 16; // 16 sets (index width 4 bits)
     
     // Cache storage arrays (2 ways)
-    logic [NUM_WAYS-1:0][NUM_SETS-1:0][63:0] cache_data;     // Data storage
+    logic [NUM_WAYS-1:0][NUM_SETS-1:0][63:0] ld_cache_fetched_data;     // Data storage
     logic [NUM_WAYS-1:0][NUM_SETS-1:0][8:0]  cache_tags;     // 9-bit tag storage
     logic [NUM_WAYS-1:0][NUM_SETS-1:0]       valids;         // Valid bits
     logic [NUM_WAYS-1:0][NUM_SETS-1:0]       dirties;        // Dirty bits
@@ -82,9 +82,9 @@ module dcache_2way_16set(
     // Debug Assignments (TEST_MODE only)
     // =============================================
     `ifdef TEST_MODE
-    assign cache_data_disp = cache_data;
-    assign cache_tags_disp = cache_tags;
-    assign valids_disp = valids;
+    assign dc_dbg_data = ld_cache_fetched_data;
+    assign dc_dbg_tag = cache_tags;
+    assign dc_dbg_valid = valids;
     `endif
     
     // =============================================
@@ -92,13 +92,13 @@ module dcache_2way_16set(
     // =============================================
     always_comb begin
         for (int port = 0; port < 2; port++) begin
-            rd1_valid[port] = 0;
-            rd1_data[port] = 0;
+            dc_Id_valid[port] = 0;
+            dc_Id_data[port] = 0;
             for (int way = 0; way < NUM_WAYS; way++) begin
-                if (valids[way][rd1_idx[port]] && 
-                    cache_tags[way][rd1_idx[port]] == rd1_tag[port]) begin
-                    rd1_valid[port] = 1;
-                    rd1_data[port] = cache_data[way][rd1_idx[port]];
+                if (valids[way][dc_Id_index[port]] && 
+                    cache_tags[way][dc_Id_index[port]] == dc_Id_id[port]) begin
+                    dc_Id_valid[port] = 1;
+                    dc_Id_data[port] = ld_cache_fetched_data[way][dc_Id_index[port]];
                 end
             end
         end
@@ -109,11 +109,11 @@ module dcache_2way_16set(
     // =============================================
     always_comb begin
         for (int port = 0; port < 3; port++) begin
-            wrh_hit[port] = 0;
+            dc_wrchk_hit[port] = 0;
             for (int way = 0; way < NUM_WAYS; way++) begin
-                if (valids[way][wrh_idx[port]] && 
-                    cache_tags[way][wrh_idx[port]] == wrh_tag[port]) begin
-                    wrh_hit[port] = 1;
+                if (valids[way][dc_wrchk_index[port]] && 
+                    cache_tags[way][dc_wrchk_index[port]] == dc_wrchk_id[port]) begin
+                    dc_wrchk_hit[port] = 1;
                 end
             end
         end
@@ -124,58 +124,58 @@ module dcache_2way_16set(
     // =============================================
     always_comb begin
         // Default: keep current values
-        next_cache_data = cache_data;
+        next_cache_data = ld_cache_fetched_data;
         next_cache_tags = cache_tags;
         next_valids = valids;
         next_dirties = dirties;
         next_lru_bits = lru_bits;
         
         // Initialize write-back signals
-        need_write_mem = 0;
-        wb_mem_data = 0;
-        wb_mem_addr = 0;
+        dc_wb_valid = 0;
+        dc_wb_data = 0;
+        dc_wb_addr = 0;
         
         // -----------------------------
         // Process Store Queue Writes (wr1)
         // -----------------------------
         for (int port = 0; port < 3; port++) begin
-            if (wr1_en[port] && wr1_hit[port]) begin
+            if (dc_sq_wrEN[port] && dc_sq_wr_hit[port]) begin
                 // Find which way hit
                 for (int way = 0; way < NUM_WAYS; way++) begin
-                    if (valids[way][wr1_idx[port]] && 
-                        cache_tags[way][wr1_idx[port]] == wr1_tag[port]) begin
+                    if (valids[way][dc_sq_wr_index[port]] && 
+                        cache_tags[way][dc_sq_wr_index[port]] == dc_sq_wr_id[port]) begin
                         hit_way = way;
                     end
                 end
                 
                 // Update the hit way
-                next_valids[hit_way][wr1_idx[port]] = 1'b1;
-                next_cache_tags[hit_way][wr1_idx[port]] = wr1_tag[port];
-                next_dirties[hit_way][wr1_idx[port]] = 1'b1;
+                next_valids[hit_way][dc_sq_wr_index[port]] = 1'b1;
+                next_cache_tags[hit_way][dc_sq_wr_index[port]] = dc_sq_wr_id[port];
+                next_dirties[hit_way][dc_sq_wr_index[port]] = 1'b1;
 
                 // Update data based on byte mask
                 for (int bt = 0; bt < 8; bt++) begin
-                    if (used_bytes[port][bt]) begin
-                        next_cache_data[hit_way][wr1_idx[port]][8*bt +: 8] = 
-                            wr1_data[port][8*bt +: 8];
+                    if (dc_sq_wr_be[port][bt]) begin
+                        next_cache_data[hit_way][dc_sq_wr_index[port]][8*bt +: 8] = 
+                            dc_sq_wr_data[port][8*bt +: 8];
                     end
                 end
                 
                 // Update LRU (mark other way as recently used)
-                next_lru_bits[wr1_idx[port]] = ~hit_way;
+                next_lru_bits[dc_sq_wr_index[port]] = ~hit_way;
             end
         end
         
         // -----------------------------
         // Process Cache Refill (wr2)
         // -----------------------------
-        if (wr2_en) begin
+        if (dc_refillEN) begin
             invalid_way = -1;
             hit_way = -1;
             
             // Check for existing entry (hit)
             for (int way = 0; way < NUM_WAYS; way++) begin
-                if (valids[way][wr2_idx] && cache_tags[way][wr2_idx] == wr2_tag) begin 
+                if (valids[way][dc_refill_index] && cache_tags[way][dc_refill_index] == dc_refill_id) begin 
                     hit_way = way;
                 end
             end
@@ -183,7 +183,7 @@ module dcache_2way_16set(
             // Find first invalid way if no hit
             if (hit_way == -1) begin
                 for (int way = 0; way < NUM_WAYS; way++) begin
-                    if (!valids[way][wr2_idx]) begin
+                    if (!valids[way][dc_refill_index]) begin
                         invalid_way = way;
                         break;
                     end
@@ -194,12 +194,12 @@ module dcache_2way_16set(
             if (hit_way != -1) begin
                 // Case 1: Hit - update existing entry
                 replacement_way = hit_way;
-                if (wr2_dirty) begin
-                    next_dirties[replacement_way][wr2_idx] = 1'b1;
+                if (dc_refill_dir) begin
+                    next_dirties[replacement_way][dc_refill_index] = 1'b1;
                     for (int bt = 0; bt < 8; bt++) begin
-                        if (wr2_usebytes[bt]) begin
-                            next_cache_data[replacement_way][wr2_idx][8*bt +: 8] = 
-                                wr2_data[8*bt +: 8];
+                        if (dc_refill_be[bt]) begin
+                            next_cache_data[replacement_way][dc_refill_index][8*bt +: 8] = 
+                                dc_refill_data[8*bt +: 8];
                         end
                     end
                 end
@@ -207,54 +207,54 @@ module dcache_2way_16set(
             else if (invalid_way != -1) begin
                 // Case 2: Miss but found invalid way - use it
                 replacement_way = invalid_way;
-                next_valids[replacement_way][wr2_idx] = 1'b1;
-                next_dirties[replacement_way][wr2_idx] = wr2_dirty;
-                next_cache_data[replacement_way][wr2_idx] = wr2_data;
-                next_cache_tags[replacement_way][wr2_idx] = wr2_tag;
+                next_valids[replacement_way][dc_refill_index] = 1'b1;
+                next_dirties[replacement_way][dc_refill_index] = dc_refill_dir;
+                next_cache_data[replacement_way][dc_refill_index] = dc_refill_data;
+                next_cache_tags[replacement_way][dc_refill_index] = dc_refill_id;
             end 
             else begin
                 // Case 3: Miss and all ways valid - replace LRU
-                replacement_way = lru_bits[wr2_idx];
+                replacement_way = lru_bits[dc_refill_index];
                 
                 // Check if we need to write back evicted line
-                if (dirties[replacement_way][wr2_idx]) begin
-                    need_write_mem = 1'b1;
-                    wb_mem_data = cache_data[replacement_way][wr2_idx];
-                    wb_mem_addr = {16'b0, cache_tags[replacement_way][wr2_idx], wr2_idx, 3'b0};
+                if (dirties[replacement_way][dc_refill_index]) begin
+                    dc_wb_valid = 1'b1;
+                    dc_wb_data = ld_cache_fetched_data[replacement_way][dc_refill_index];
+                    dc_wb_addr = {16'b0, cache_tags[replacement_way][dc_refill_index], dc_refill_index, 3'b0};
 
                 end
                 
                 // Install new line
-                next_dirties[replacement_way][wr2_idx] = wr2_dirty;
-                next_cache_data[replacement_way][wr2_idx] = wr2_data;
-                next_cache_tags[replacement_way][wr2_idx] = wr2_tag;
+                next_dirties[replacement_way][dc_refill_index] = dc_refill_dir;
+                next_cache_data[replacement_way][dc_refill_index] = dc_refill_data;
+                next_cache_tags[replacement_way][dc_refill_index] = dc_refill_id;
             end
             
             // Update LRU
-            next_lru_bits[wr2_idx] = ~replacement_way;
+            next_lru_bits[dc_refill_index] = ~replacement_way;
         end
     end
     
     // =============================================
     // Sequential Update (Flip-Flops)
     // =============================================
-    always_ff @(posedge clock) begin
-        if (reset) begin
-            // Clear all cache state on reset
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            // Clear all cache state on rst
             for (int way = 0; way < NUM_WAYS; way++) begin
-                valids[way] <= `SD '0;
-                cache_tags[way] <= `SD '0;
-                cache_data[way] <= `SD '0;
-                dirties[way] <= `SD '0;
+                valids[way] <= `SYS_SMALL_DELAY '0;
+                cache_tags[way] <= `SYS_SMALL_DELAY '0;
+                ld_cache_fetched_data[way] <= `SYS_SMALL_DELAY '0;
+                dirties[way] <= `SYS_SMALL_DELAY '0;
             end
-            lru_bits <= `SD '0;
+            lru_bits <= `SYS_SMALL_DELAY '0;
         end else begin
             // Update with next state values
-            cache_data <= `SD next_cache_data;
-            cache_tags <= `SD next_cache_tags;
-            valids <= `SD next_valids;
-            dirties <= `SD next_dirties;
-            lru_bits <= `SD next_lru_bits;
+            ld_cache_fetched_data <= `SYS_SMALL_DELAY next_cache_data;
+            cache_tags <= `SYS_SMALL_DELAY next_cache_tags;
+            valids <= `SYS_SMALL_DELAY next_valids;
+            dirties <= `SYS_SMALL_DELAY next_dirties;
+            lru_bits <= `SYS_SMALL_DELAY next_lru_bits;
         end
     end
 endmodule
@@ -267,41 +267,41 @@ endmodule
 `include "verilog/ISA.svh"
 `timescale 1ns/100ps
 module dcache(
-    input   clock,
-    input   reset,
+    input   clk,
+    input   rst,
 
     // Interface with memory controller
     input   [3:0] Ctlr2proc_response,
     input  [63:0] Ctlr2proc_data,
     input   [3:0] Ctlr2proc_tag,
 
-    output logic [1:0] dcache2ctlr_command,      
-    output logic [`XLEN-1:0] dcache2ctlr_addr,  
-    output logic [63:0] dcache2ctlr_data,
+    output logic [1:0] mc_dc_cmd,      
+    output logic [`SYS_XLEN-1:0] mc_dc_addr,  
+    output logic [63:0] mc_dc_wr_data,
 
     // Store Queue (SQ) interface
     input SQ_ENTRY_PACKET [2:0] sq_in,
-    input SQ_ENTRY_PACKET [2:0] sq_head,
-    output [2:0] sq_stall,
+    input SQ_ENTRY_PACKET [2:0] lsq_head_entry,
+    output [2:0] rb_sq_stall,
 
-    // Load Queue (LQ) / Load-FU interface
-    input [1:0] [`XLEN-1:0] ld_addr_in,
+    // Load Queue (LQ) / Load-SYS_FU_ADDR_WIDTH interface
+    input [1:0] [`SYS_XLEN-1:0] ld_addr_in,
     input [1:0] ld_start,
-    output logic [1:0] is_hit,
-    output logic [1:0] [`XLEN-1:0] ld_data,
-    output logic [1:0] broadcast_fu,
-    output logic [`XLEN-1:0] broadcast_data
+    output logic [1:0] exs_dcache_hit_flags,
+    output logic [1:0] [`SYS_XLEN-1:0] exs_dcache_resp_data,
+    output logic [1:0] exs_dcache_brdcast_mask,
+    output logic [`SYS_XLEN-1:0] exs_dcache_brdcast_data
 
     `ifdef TEST_MODE
-      , output logic [1:0] [15:0] [63:0] cache_data_disp
-      , output logic [1:0] [15:0] [8:0] cache_tags_disp
-      , output logic [1:0] [15:0] valids_disp
-      , output logic [1:0] [15:0] dirties_disp
+      , output logic [1:0] [15:0] [63:0] dc_dbg_data
+      , output logic [1:0] [15:0] [8:0] dc_dbg_tag
+      , output logic [1:0] [15:0] dc_dbg_valid
+      , output logic [1:0] [15:0] dc_dbg_dir
 
-      , output MHSRS_ENTRY_PACKET [`MHSRS_W-1:0] MHSRS_disp
-      , output logic [`MHSRS-1:0] head_pointer
-      , output logic [`MHSRS-1:0] issue_pointer
-      , output logic [`MHSRS-1:0] tail_pointer
+      , output MHSRS_ENTRY_PACKET [`SYS_MHSRS_NUM-1:0] mhsrs_entry_vector
+      , output logic [`SYS_MHSRS_ADDR_WIDTH-1:0] mhsrs_head_index
+      , output logic [`SYS_MHSRS_ADDR_WIDTH-1:0] mhsrs_issue_index
+      , output logic [`SYS_MHSRS_ADDR_WIDTH-1:0] mhsrs_tail_index
     `endif
 );
 
@@ -310,9 +310,9 @@ module dcache(
 // ------------------------------------
 logic [2:0] wr_en;
 logic [2:0][3:0] wr_idx;
-logic [2:0][8:0] wr_tag;
+logic [2:0][8:0] icache_wr_id;
 logic [2:0][63:0] wr_data;
-logic [2:0][7:0] used_bytes;
+logic [2:0][7:0] dc_sq_wr_be;
 logic [2:0] wr_hit;
 
 // Internal signals for way-hit tracking
@@ -326,26 +326,26 @@ logic [1:0][63:0] rd_data;
 logic [1:0] rd_valid;
 
 // Signals to write back to memory when evicting dirty block
-logic need_write_mem;
-logic [63:0] wb_mem_data;
-logic [`XLEN-1:0] wb_mem_addr;
+logic dc_wb_valid;
+logic [63:0] dc_wb_data;
+logic [`SYS_XLEN-1:0] dc_wb_addr;
 
 // New memory address for store misses
-logic [2:0][`XLEN-1:0] ld_new_mem_addr;
+logic [2:0][`SYS_XLEN-1:0] ld_new_mem_addr;
 
 // Write-back from memory after load miss
-logic wr2_en;
-logic [3:0] wr2_idx;
-logic [8:0] wr2_tag;
-logic [63:0] wr2_data;
-logic [7:0] wr2_usebytes;
-logic wr2_dirty;
+logic dc_refillEN;
+logic [3:0] dc_refill_index;
+logic [8:0] dc_refill_id;
+logic [63:0] dc_refill_data;
+logic [7:0] dc_refill_be;
+logic dc_refill_dir;
 
-// SQ head hit logic
+// SQ fl_head_reg hit logic
 logic [2:0] sq_head_stall;
 logic [2:0] sq_head_hit;
-logic [2:0][8:0] wrh_tag;
-logic [2:0][3:0] wrh_idx;
+logic [2:0][8:0] dc_wrchk_id;
+logic [2:0][3:0] dc_wrchk_index;
 
 // ------------------------------------
 // SQ Stall logic based on write hits
@@ -364,12 +364,12 @@ always_comb begin
 end
 
 // ------------------------------------
-// Extract tag and index from SQ head
+// Extract tag and index from SQ fl_head_reg
 // ------------------------------------
 always_comb begin
   for (int i = 0; i < 3; i++) begin
-    wrh_tag[i] = sq_head[i].addr[`XLEN-1:7];   //  [XLEN-1:7] ➔ 9-bit tag
-    wrh_idx[i] = sq_head[i].addr[6:3];         //  [6:3] ➔ 4-bit index
+    dc_wrchk_id[i] = lsq_head_entry[i].addr[`SYS_XLEN-1:7];   //  [SYS_XLEN-1:7] ➔ 9-bit tag
+    dc_wrchk_index[i] = lsq_head_entry[i].addr[6:3];         //  [6:3] ➔ 4-bit index
   end
 end
 
@@ -379,15 +379,15 @@ end
 always_comb begin : SQ_input_processing
   for (int i = 2; i >= 0; i--) begin
     wr_en[i] = sq_in[i].ready;
-    wr_tag[i] = sq_in[i].addr[`XLEN-1:7];    // 9-bit tag
+    icache_wr_id[i] = sq_in[i].addr[`SYS_XLEN-1:7];    // 9-bit tag
     wr_idx[i] = sq_in[i].addr[6:3];          // 4-bit index
-    ld_new_mem_addr[i] = {sq_in[i].addr[`XLEN-1:3], 3'b0};  // still original 64b aligned
+    ld_new_mem_addr[i] = {sq_in[i].addr[`SYS_XLEN-1:3], 3'b0};  // still original 64b aligned
     if (sq_in[i].addr[2] == 1'b1) begin
-      wr_data[i] = {sq_in[i].data, `XLEN'b0};
-      used_bytes[i] = {sq_in[i].usebytes, 4'b0};
+      wr_data[i] = {sq_in[i].data, `SYS_XLEN'b0};
+      dc_sq_wr_be[i] = {sq_in[i].usebytes, 4'b0};
     end else begin
-      wr_data[i] = {`XLEN'b0, sq_in[i].data};
-      used_bytes[i] = {4'b0, sq_in[i].usebytes};
+      wr_data[i] = {`SYS_XLEN'b0, sq_in[i].data};
+      dc_sq_wr_be[i] = {4'b0, sq_in[i].usebytes};
     end
   end
 end
@@ -398,7 +398,7 @@ end
 
 always_comb begin : LQ_input_processing
   for (int i = 1; i >= 0; i--) begin
-    rd_tag[i] = ld_addr_in[i][`XLEN-1:7];   // 9-bit tag
+    rd_tag[i] = ld_addr_in[i][`SYS_XLEN-1:7];   // 9-bit tag
     rd_idx[i] = ld_addr_in[i][6:3];         // 4-bit index
   end
 end
@@ -407,40 +407,40 @@ end
 // Cache memory module instantiation
 // ------------------------------------
 dcache_2way_16set ram (
-  .clock(clock),
-  .reset(reset),
-  .wr1_en(wr_en),
-  .wr1_idx(wr_idx),
-  .wr1_tag(wr_tag),
-  .wr1_data(wr_data),
-  .used_bytes(used_bytes),
-  .wr1_hit(wr_hit),
-  .wrh_idx(wrh_idx),
-  .wrh_tag(wrh_tag),
-  .wrh_hit(sq_head_hit),
-  .rd1_idx(rd_idx),
-  .rd1_tag(rd_tag),
-  .rd1_data(rd_data),
-  .rd1_valid(rd_valid),
-  .need_write_mem(need_write_mem),
-  .wb_mem_data(wb_mem_data),
-  .wb_mem_addr(wb_mem_addr),
-  .wr2_en(wr2_en),
-  .wr2_idx(wr2_idx),
-  .wr2_tag(wr2_tag),
-  .wr2_data(wr2_data),
-  .wr2_usebytes(wr2_usebytes),
-  .wr2_dirty(wr2_dirty)
+  .clk(clk),
+  .rst(rst),
+  .dc_sq_wrEN(wr_en),
+  .dc_sq_wr_index(wr_idx),
+  .dc_sq_wr_id(icache_wr_id),
+  .dc_sq_wr_data(wr_data),
+  .dc_sq_wr_be(dc_sq_wr_be),
+  .dc_sq_wr_hit(wr_hit),
+  .dc_wrchk_index(dc_wrchk_index),
+  .dc_wrchk_id(dc_wrchk_id),
+  .dc_wrchk_hit(sq_head_hit),
+  .dc_Id_index(rd_idx),
+  .dc_Id_id(rd_tag),
+  .dc_Id_data(rd_data),
+  .dc_Id_valid(rd_valid),
+  .dc_wb_valid(dc_wb_valid),
+  .dc_wb_data(dc_wb_data),
+  .dc_wb_addr(dc_wb_addr),
+  .dc_refillEN(dc_refillEN),
+  .dc_refill_index(dc_refill_index),
+  .dc_refill_id(dc_refill_id),
+  .dc_refill_data(dc_refill_data),
+  .dc_refill_be(dc_refill_be),
+  .dc_refill_dir(dc_refill_dir)
 
   // ways
   // .rd1_way_hit(rd1_way_hit),
   // .wrh_way_hit(wrh_way_hit)
 
   `ifdef TEST_MODE
-    , .cache_data_disp(cache_data_disp)
-    , .cache_tags_disp(cache_tags_disp)
-    , .valids_disp(valids_disp)
-    , .dirties_disp(dirties_disp)
+    , .dc_dbg_data(dc_dbg_data)
+    , .dc_dbg_tag(dc_dbg_tag)
+    , .dc_dbg_valid(dc_dbg_valid)
+    , .dc_dbg_dir(dc_dbg_dir)
   `endif
 );
 
@@ -448,12 +448,12 @@ dcache_2way_16set ram (
 // Send final hit data from rd_data bus
 // ------------------------------------
 always_comb begin : send_hit_data
-  ld_data = 0;
+  exs_dcache_resp_data = 0;
   for (int i = 1; i >= 0; i--) begin
     if (ld_addr_in[i][2])
-      ld_data[i] = rd_data[i][63:32];
+      exs_dcache_resp_data[i] = rd_data[i][63:32];
     else
-      ld_data[i] = rd_data[i][31:0];
+      exs_dcache_resp_data[i] = rd_data[i][31:0];
   end
 end
 
@@ -461,69 +461,69 @@ end
 // --- MSHR Table and Control Logic ---
 
 // Miss Status Holding Registers
-MHSRS_ENTRY_PACKET [`MHSRS_W-1:0] mshrs_table, mshrs_table_next;
-MHSRS_ENTRY_PACKET [`MHSRS_W-1:0] mshrs_table_next_after_retire;
-MHSRS_ENTRY_PACKET [`MHSRS_W-1:0] mshrs_table_next_after_issue;
+MHSRS_ENTRY_PACKET [`SYS_MHSRS_NUM-1:0] mshrs_table, mshrs_table_next;
+MHSRS_ENTRY_PACKET [`SYS_MHSRS_NUM-1:0] mshrs_table_next_after_retire;
+MHSRS_ENTRY_PACKET [`SYS_MHSRS_NUM-1:0] mshrs_table_next_after_issue;
 
-// MSHR head, issue, tail pointers
-logic [`MHSRS-1:0] head, head_next;
-logic [`MHSRS-1:0] issue, issue_next;
-logic [`MHSRS-1:0] tail, tail_next;
+// MSHR fl_head_reg, issue, fl_tail_reg pointers
+logic [`SYS_MHSRS_ADDR_WIDTH-1:0] fl_head_reg, fl_head_nxt;
+logic [`SYS_MHSRS_ADDR_WIDTH-1:0] issue, issue_next;
+logic [`SYS_MHSRS_ADDR_WIDTH-1:0] fl_tail_reg, fl_tail_nxt;
 
 `ifdef TEST_MODE
-  assign MHSRS_disp = mshrs_table;
-  assign head_pointer = head;
-  assign issue_pointer = issue;
-  assign tail_pointer = tail;
+  assign mhsrs_entry_vector = mshrs_table;
+  assign mhsrs_head_index = fl_head_reg;
+  assign mhsrs_issue_index = issue;
+  assign mhsrs_tail_index = fl_tail_reg;
 `endif
 
-// Register MSHR state at posedge clock
-always_ff @(posedge clock) begin : MSHRS_reg
-  if (reset) begin
-    mshrs_table <= `SD 0;
-    head <= `SD 0;
-    issue <= `SD 0;
-    tail <= `SD 0;
+// Register MSHR state at posedge clk
+always_ff @(posedge clk) begin : MSHRS_reg
+  if (rst) begin
+    mshrs_table <= `SYS_SMALL_DELAY 0;
+    fl_head_reg <= `SYS_SMALL_DELAY 0;
+    issue <= `SYS_SMALL_DELAY 0;
+    fl_tail_reg <= `SYS_SMALL_DELAY 0;
   end else begin
-    mshrs_table <= `SD mshrs_table_next;
-    head <= `SD head_next;
-    issue <= `SD issue_next;
-    tail <= `SD tail_next;
+    mshrs_table <= `SYS_SMALL_DELAY mshrs_table_next;
+    fl_head_reg <= `SYS_SMALL_DELAY fl_head_nxt;
+    issue <= `SYS_SMALL_DELAY issue_next;
+    fl_tail_reg <= `SYS_SMALL_DELAY fl_tail_nxt;
   end
 end
 
-assign broadcast_fu = 0;
-assign broadcast_data = 0;
+assign exs_dcache_brdcast_mask = 0;
+assign exs_dcache_brdcast_data = 0;
 
 // ------------------------------------
-// Head logic: handle retiring MSHR entries
+// fl_head_ptr logic: handle retiring MSHR entries
 // ------------------------------------
 always_comb begin : head_logic
-  head_next = head;
-  wr2_en = 0; wr2_idx = 0; wr2_tag = 0;
-  wr2_data = 0; wr2_dirty = 0; wr2_usebytes = 0;
+  fl_head_nxt = fl_head_reg;
+  dc_refillEN = 0; dc_refill_index = 0; dc_refill_id = 0;
+  dc_refill_data = 0; dc_refill_dir = 0; dc_refill_be = 0;
   mshrs_table_next_after_retire = mshrs_table;
 
-  if ((head != tail) && mshrs_table[head].issued &&
-      (mshrs_table[head].command == BUS_STORE ||
-      (mshrs_table[head].command == BUS_LOAD && Ctlr2proc_tag == mshrs_table[head].mem_tag))) begin
+  if ((fl_head_reg != fl_tail_reg) && mshrs_table[fl_head_reg].issued &&
+      (mshrs_table[fl_head_reg].command == BUS_STORE ||
+      (mshrs_table[fl_head_reg].command == BUS_LOAD && Ctlr2proc_tag == mshrs_table[fl_head_reg].mem_tag))) begin
 
-    head_next = head + 1;
-    mshrs_table_next_after_retire[head] = 0;
-    // if the command is a store, just retire the entry
+    fl_head_nxt = fl_head_reg + 1;
+    mshrs_table_next_after_retire[fl_head_reg] = 0;
+    // if the command is a store, just lsq_retire_mask the entry
     // If the command is a load, we still need to write back the data to cache
-    if (mshrs_table[head].command == BUS_LOAD) begin
-      wr2_en = 1'b1;
-      {wr2_tag, wr2_idx} = mshrs_table[head].addr[`XLEN-1:3]; // 9bits + 4bits
-      wr2_data = Ctlr2proc_data;
-      wr2_dirty = mshrs_table[head].dirty;
-      wr2_usebytes = mshrs_table[head].usebytes;
+    if (mshrs_table[fl_head_reg].command == BUS_LOAD) begin
+      dc_refillEN = 1'b1;
+      {dc_refill_id, dc_refill_index} = mshrs_table[fl_head_reg].addr[`SYS_XLEN-1:3]; // 9bits + 4bits
+      dc_refill_data = Ctlr2proc_data;
+      dc_refill_dir = mshrs_table[fl_head_reg].dirty;
+      dc_refill_be = mshrs_table[fl_head_reg].usebytes;
 
       // [Store-miss]: we need to overwrite the data in the table with the data coming from memory
-      if (mshrs_table[head].dirty == 1'b1) begin
+      if (mshrs_table[fl_head_reg].dirty == 1'b1) begin
         for (int j = 7; j >= 0; j--) begin
-          if (mshrs_table[head].usebytes[j])
-            wr2_data[8*j +: 8] = mshrs_table[head].data[8*j +: 8];
+          if (mshrs_table[fl_head_reg].usebytes[j])
+            dc_refill_data[8*j +: 8] = mshrs_table[fl_head_reg].data[8*j +: 8];
         end
       end
     end
@@ -535,15 +535,15 @@ end
 // ------------------------------------
 always_comb begin : issue_logic
   issue_next = issue;
-  dcache2ctlr_command = BUS_NONE;
-  dcache2ctlr_addr = 0;
-  dcache2ctlr_data = 0;
+  mc_dc_cmd = BUS_NONE;
+  mc_dc_addr = 0;
+  mc_dc_wr_data = 0;
   mshrs_table_next_after_issue = mshrs_table_next_after_retire;
 
-  if ((issue != tail) && !mshrs_table[issue].issued) begin
-    dcache2ctlr_command = mshrs_table[issue].command;
-    dcache2ctlr_addr = mshrs_table[issue].addr;
-    dcache2ctlr_data = mshrs_table[issue].data;
+  if ((issue != fl_tail_reg) && !mshrs_table[issue].issued) begin
+    mc_dc_cmd = mshrs_table[issue].command;
+    mc_dc_addr = mshrs_table[issue].addr;
+    mc_dc_wr_data = mshrs_table[issue].data;
   end
 
   if (mshrs_table[issue].command != BUS_NONE && Ctlr2proc_response != 4'b0) begin
@@ -563,16 +563,16 @@ logic [1:0] ld_request, ld_request_next;
 
 // **--- Load Merge Check ---
 logic [1:0] load_merge_hit;
-logic [1:0][`MHSRS-1:0] load_merge_idx;
+logic [1:0][`SYS_MHSRS_ADDR_WIDTH-1:0] load_merge_idx;
 
 always_comb begin
   for (int i = 0; i < 2; i++) begin
     load_merge_hit[i] = 0;
     load_merge_idx[i] = 0;
     if (ld_start[i] && !rd_valid[i]) begin
-      for (int j = 0; j < `MHSRS_W; j++) begin
+      for (int j = 0; j < `SYS_MHSRS_NUM; j++) begin
         if (mshrs_table[j].command == BUS_LOAD && 
-            mshrs_table[j].addr[`XLEN-1:3] == ld_addr_in[i][`XLEN-1:3]) begin
+            mshrs_table[j].addr[`SYS_XLEN-1:3] == ld_addr_in[i][`SYS_XLEN-1:3]) begin
           load_merge_hit[i] = 1;
           load_merge_idx[i] = j;
         end
@@ -587,9 +587,9 @@ logic [1:0] load_store_hazard;
 always_comb begin
   for (int i = 0; i < 2; i++) begin
     load_store_hazard[i] = 0;
-    for (int j = 0; j < `MHSRS_W; j++) begin
+    for (int j = 0; j < `SYS_MHSRS_NUM; j++) begin
       if (mshrs_table[j].command == BUS_STORE &&
-          mshrs_table[j].addr[`XLEN-1:3] == ld_addr_in[i][`XLEN-1:3]) begin
+          mshrs_table[j].addr[`SYS_XLEN-1:3] == ld_addr_in[i][`SYS_XLEN-1:3]) begin
         load_store_hazard[i] = 1;
       end
     end
@@ -605,62 +605,62 @@ always_comb begin
 end
 
 // Record load hazard information across cycles
-always_ff @(posedge clock) begin
-  if (reset) load_hazard <= `SD 0;
+always_ff @(posedge clk) begin
+  if (rst) load_hazard <= `SYS_SMALL_DELAY 0;
   else begin
-    if (ld_start[0]) load_hazard[0] <= `SD load_hazard_next[0];
-    else load_hazard[0] <= `SD (load_hazard[0] & load_hazard_next[0]);
+    if (ld_start[0]) load_hazard[0] <= `SYS_SMALL_DELAY load_hazard_next[0];
+    else load_hazard[0] <= `SYS_SMALL_DELAY (load_hazard[0] & load_hazard_next[0]);
 
-    if (ld_start[1]) load_hazard[1] <= `SD load_hazard_next[1];
-    else load_hazard[1] <= `SD (load_hazard[1] & load_hazard_next[1]);
+    if (ld_start[1]) load_hazard[1] <= `SYS_SMALL_DELAY load_hazard_next[1];
+    else load_hazard[1] <= `SYS_SMALL_DELAY (load_hazard[1] & load_hazard_next[1]);
   end
 end
 
 // Load request bookkeeping
-always_ff @(posedge clock) begin
-  if (reset) ld_request <= `SD 0;
-  else ld_request <= `SD ld_request_next;
+always_ff @(posedge clk) begin
+  if (rst) ld_request <= `SYS_SMALL_DELAY 0;
+  else ld_request <= `SYS_SMALL_DELAY ld_request_next;
 end
 
 // // Final hazard signal for each load port
 assign is_there_load_hazard[0] = ld_start[0] ? (|load_hazard_next[0] || load_store_hazard[0]) : (|load_hazard[0] || load_store_hazard[0]);
 assign is_there_load_hazard[1] = ld_start[1] ? (|load_hazard_next[1] || load_store_hazard[1]) : (|load_hazard[1] || load_store_hazard[1]);
 // // If hazard detected, force load to miss
-assign is_hit[0] = (is_there_load_hazard[0] || load_merge_hit[0]) ? 1'b0 : rd_valid[0];
-assign is_hit[1] = (is_there_load_hazard[1] || load_merge_hit[1]) ? 1'b0 : rd_valid[1];
+assign exs_dcache_hit_flags[0] = (is_there_load_hazard[0] || load_merge_hit[0]) ? 1'b0 : rd_valid[0];
+assign exs_dcache_hit_flags[1] = (is_there_load_hazard[1] || load_merge_hit[1]) ? 1'b0 : rd_valid[1];
 
 
 // ------------------------------------
 // Tail logic: allocate MSHRs for new requests
 // ------------------------------------
-logic [2:0][`MHSRS-1:0] tail_after_ld;
-logic [3:0][`MHSRS-1:0] tail_after_wr;
+logic [2:0][`SYS_MHSRS_ADDR_WIDTH-1:0] tail_after_ld;
+logic [3:0][`SYS_MHSRS_ADDR_WIDTH-1:0] tail_after_wr;
 logic [2:0] full_after_ld;
 logic [3:0] full_after_wr;
-logic [`MHSRS-1:0] h_t_distance;
+logic [`SYS_MHSRS_ADDR_WIDTH-1:0] h_t_distance;
 
-assign h_t_distance = head - tail;
+assign h_t_distance = fl_head_reg - fl_tail_reg;
 
-assign sq_stall[2] = sq_head_stall[2] | (h_t_distance == `MHSRS'd4);
-assign sq_stall[1] = sq_head_stall[1] | (h_t_distance == `MHSRS'd5);
-assign sq_stall[0] = sq_head_stall[0] | (h_t_distance == `MHSRS'd6);
+assign rb_sq_stall[2] = sq_head_stall[2] | (h_t_distance == `SYS_MHSRS_ADDR_WIDTH'd4);
+assign rb_sq_stall[1] = sq_head_stall[1] | (h_t_distance == `SYS_MHSRS_ADDR_WIDTH'd5);
+assign rb_sq_stall[0] = sq_head_stall[0] | (h_t_distance == `SYS_MHSRS_ADDR_WIDTH'd6);
 
 always_comb begin : tail_logic
   mshrs_table_next = mshrs_table_next_after_issue;
   ld_request_next = ld_request;
-  tail_after_ld[2] = tail;
-  full_after_ld[2] = (tail + 2 == head);
+  tail_after_ld[2] = fl_tail_reg;
+  full_after_ld[2] = (fl_tail_reg + 2 == fl_head_reg);
 
   for (int i = 1; i >= 0; i--) begin
   if (!full_after_ld[i+1] && ((!rd_valid[i] && ld_start[i]) || ld_request[i])) begin
     if (!load_merge_hit[i]) begin
-      mshrs_table_next[tail_after_ld[i+1]].addr = {ld_addr_in[i][`XLEN-1:3], 3'b0};
+      mshrs_table_next[tail_after_ld[i+1]].addr = {ld_addr_in[i][`SYS_XLEN-1:3], 3'b0};
       mshrs_table_next[tail_after_ld[i+1]].command = BUS_LOAD;
       mshrs_table_next[tail_after_ld[i+1]].mem_tag = 0;
       mshrs_table_next[tail_after_ld[i+1]].left_or_right = ld_addr_in[i][2];
       mshrs_table_next[tail_after_ld[i+1]].data = 0;
       mshrs_table_next[tail_after_ld[i+1]].issued = 0;
-      mshrs_table_next[tail_after_ld[i+1]].broadcast_fu = (i == 1) ? 2'b10 : 2'b01;
+      mshrs_table_next[tail_after_ld[i+1]].exs_dcache_brdcast_mask = (i == 1) ? 2'b10 : 2'b01;
       mshrs_table_next[tail_after_ld[i+1]].usebytes = 8'b0;
       mshrs_table_next[tail_after_ld[i+1]].dirty = 0;
       tail_after_ld[i] = tail_after_ld[i+1] + 1;
@@ -674,7 +674,7 @@ always_comb begin : tail_logic
     end else begin
       tail_after_ld[i] = tail_after_ld[i+1];
     end
-    full_after_ld[i] = (tail_after_ld[i] + 2 == head);
+    full_after_ld[i] = (tail_after_ld[i] + 2 == fl_head_reg);
   end
 
   tail_after_wr[3] = tail_after_ld[0];
@@ -686,8 +686,8 @@ always_comb begin : tail_logic
       mshrs_table_next[tail_after_wr[i+1]].left_or_right = 0;
       mshrs_table_next[tail_after_wr[i+1]].data = wr_data[i];
       mshrs_table_next[tail_after_wr[i+1]].issued = 0;
-      mshrs_table_next[tail_after_wr[i+1]].broadcast_fu = 0;
-      mshrs_table_next[tail_after_wr[i+1]].usebytes = used_bytes[i];
+      mshrs_table_next[tail_after_wr[i+1]].exs_dcache_brdcast_mask = 0;
+      mshrs_table_next[tail_after_wr[i+1]].usebytes = dc_sq_wr_be[i];
       // mshrs_table_next[tail_after_wr[i+1]].way = wrh_way_hit[i];
       mshrs_table_next[tail_after_wr[i+1]].dirty = 1;
       tail_after_wr[i] = tail_after_wr[i+1] + 1;
@@ -696,19 +696,19 @@ always_comb begin : tail_logic
     end
   end
 
-  tail_next = tail_after_wr[0];
+  fl_tail_nxt = tail_after_wr[0];
 
-  if (need_write_mem) begin
-    mshrs_table_next[tail_after_wr[0]].addr = wb_mem_addr;
+  if (dc_wb_valid) begin
+    mshrs_table_next[tail_after_wr[0]].addr = dc_wb_addr;
     mshrs_table_next[tail_after_wr[0]].command = BUS_STORE;
     mshrs_table_next[tail_after_wr[0]].mem_tag = 0;
     mshrs_table_next[tail_after_wr[0]].left_or_right = 0;
-    mshrs_table_next[tail_after_wr[0]].data = wb_mem_data;
+    mshrs_table_next[tail_after_wr[0]].data = dc_wb_data;
     mshrs_table_next[tail_after_wr[0]].issued = 0;
-    mshrs_table_next[tail_after_wr[0]].broadcast_fu = 0;
+    mshrs_table_next[tail_after_wr[0]].exs_dcache_brdcast_mask = 0;
     mshrs_table_next[tail_after_wr[0]].usebytes = 0;
     mshrs_table_next[tail_after_wr[0]].dirty = 0;
-    tail_next = tail_after_wr[0] + 1;
+    fl_tail_nxt = tail_after_wr[0] + 1;
   end
 end
 
