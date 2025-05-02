@@ -697,6 +697,7 @@ clean_run_files:
 	@$(call PRINT_COLOR, 3, removing per-run outputs)
 	rm -rf output/*.out output/*.wb output/*.ppln
 	rm -rf *.txt
+	rm -rf *.csv
 
 clean_synth:
 	@$(call PRINT_COLOR, 1, removing synthesis files)

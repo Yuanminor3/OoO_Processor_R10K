@@ -30,7 +30,7 @@ The design includes key components such as fetch, dispatch, issue, functional un
 
 ## 🏆 Project Results
 
-### Clock Period in `Makefile` (default: 15ns)
+### Clock Period in `Makefile` (default: 11.2ns)
 - Simulation (Fastest Clock: **11.2ns**):   sim Total Passed 33 out of 33
 - Synthesis  (Fastest Clock: **11.2ns**):   syn Total Passed 33 out of 33
 ### Metrics
