@@ -34,8 +34,8 @@ The design includes key components such as fetch, dispatch, issue, functional un
 - Simulation (Fastest Clock: **11.2ns**):   sim Total Passed 33 out of 33
 - Synthesis  (Fastest Clock: **11.2ns**):   syn Total Passed 33 out of 33
 ### Metrics
-- **Average CPI** = 2.826372
-- **Average TPI** = 31.655366 ns
+- **Average CPI = 2.826372**
+- **Average TPI = 31.655366 ns**
 
 ### CPI Performance vs. In-order Pipeline
 ![CPI Performance](docs/cpi.png)
