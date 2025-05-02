@@ -37,7 +37,7 @@ The design includes key components such as fetch, dispatch, issue, functional un
 - **Average CPI** = 2.826372
 - **Average TPI** = 31.655366 ns
 
-**CPI Performance vs. In-order Pipeline**
+### CPI Performance vs. In-order Pipeline
 ![CPI Performance](docs/cpi.png)
 
 ## 🧩 Module Testbench
