@@ -9,7 +9,7 @@ module RS(
     input                       clk,
     input                       rst,
     // from lsq_disp_mask
-    input RS_IN_PACKET [2:0]    dispatch_rs_pkts,
+    input RS_S_PACKET [2:0]    dispatch_rs_pkts,
     // from SYS_FU_ADDR_WIDTH
     input FU_FIFO_PACKET        fu_fifo_stall,  // high if fu FIFO has < 3 available
     // from CDB
@@ -24,7 +24,7 @@ module RS(
 );
 
 /* The struct fl_pr_stack that stores all RS entries */
-RS_IN_PACKET [`SYS_RS_ADDR_WIDTH-1:0]        rs_entries;
+RS_S_PACKET [`SYS_RS_ADDR_WIDTH-1:0]        rs_entries;
 
 /* select next entry to allocate */
 logic [2:0][`SYS_RS_ADDR_WIDTH-1:0] rsb_allocate_mask;    // one hot coding
@@ -63,7 +63,7 @@ always_comb begin
 end
 
 // 3. allocate logic, rsb_entry_nxt state update
-RS_IN_PACKET [`SYS_RS_ADDR_WIDTH-1:0] rsb_entry_nxt;
+RS_S_PACKET [`SYS_RS_ADDR_WIDTH-1:0] rsb_entry_nxt;
 always_comb begin
     for(int i=0; i < `SYS_RS_ADDR_WIDTH; i++) begin
         if (rsb_allocate_mask[2][i])
@@ -83,11 +83,7 @@ end
 
 always_ff @(posedge clk) begin
     if (rst)
-    `ifndef IS_DEBUG
-        rs_entries <= `SYS_SMALL_DELAY 0; 
-    `else
-        rs_entries <= `SYS_SMALL_DELAY rs_entries_debug;
-    `endif
+        rs_entries <= `SYS_SMALL_DELAY 0;
     else 
         rs_entries <= `SYS_SMALL_DELAY rsb_entry_nxt;
 end
@@ -136,8 +132,7 @@ ps16 rsb_sel_issue2 (.rcmp_eq_flag(rsb_ready__rev_masked[2]), .en(1'b1), .gnt(rs
 ps16 rsb_sel_issue1 (.rcmp_eq_flag(rsb_ready__rev_masked[1]), .en(1'b1), .gnt(rsb_gnt_rev[1]));
 ps16 rsb_sel_issue0 (.rcmp_eq_flag(rsb_ready__rev_masked[0]), .en(1'b1), .gnt(rsb_gnt_rev[0]));
 
-
-RS_IN_PACKET [2:0] rsb_issue_tmp;
+RS_S_PACKET [2:0] rsb_issue_tmp;
 always_comb begin
 // 4.6 reverse selected tag back to normal order
     for (int i = 0; i < 3; i++) begin
@@ -154,30 +149,11 @@ always_comb begin
     end
 end
 
-`ifdef RS_ALLOCATE_DEBUG
-    assign rsb_issue_dequeue = 0;
-`else
-    assign rsb_issue_dequeue = rsb_gnt[0] | rsb_gnt[1] | rsb_gnt[2];
-`endif
+assign rsb_issue_dequeue = rsb_gnt[0] | rsb_gnt[1] | rsb_gnt[2];
 
 // assign output issue packet
 always_comb begin
-    for(int i=0; i<3; i++)begin
-        rsb_issue_packets[i].valid = rsb_issue_tmp[i].valid;
-        rsb_issue_packets[i].dec_fu_unit_sel = rsb_issue_tmp[i].dec_fu_unit_sel;
-        rsb_issue_packets[i].dec_fu_opcode = rsb_issue_tmp[i].dec_fu_opcode;
-        rsb_issue_packets[i].NPC = rsb_issue_tmp[i].NPC;
-        rsb_issue_packets[i].PC = rsb_issue_tmp[i].PC;
-        rsb_issue_packets[i].dec_operandA_mux = rsb_issue_tmp[i].dec_operandA_mux;
-        rsb_issue_packets[i].dec_operandB_mux = rsb_issue_tmp[i].dec_operandB_mux;
-        rsb_issue_packets[i].inst = rsb_issue_tmp[i].inst;
-        rsb_issue_packets[i].halt = rsb_issue_tmp[i].halt;
-        rsb_issue_packets[i].rob_entry = rsb_issue_tmp[i].rob_entry;
-        rsb_issue_packets[i].sq_tail = rsb_issue_tmp[i].sq_tail;
-        rsb_issue_packets[i].dispatch_allocated_prs = rsb_issue_tmp[i].dispatch_allocated_prs;
-        rsb_issue_packets[i].dispatch_src1_pr = rsb_issue_tmp[i].dispatch_src1_pr;
-        rsb_issue_packets[i].dispatch_src2_pr = rsb_issue_tmp[i].dispatch_src2_pr;
-    end
+    rsb_issue_packets = rsb_issue_tmp;
 end
 
 endmodule

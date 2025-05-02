@@ -38,7 +38,6 @@ fu_FIFO_3 alu_fifo(
     .rst(rst),
     .fu_pckt_in(iss_alu_fifo_push_pkts),
     .fifo3_read_en_mask({fu_ready_is.alu_1, fu_ready_is.alu_2, fu_ready_is.alu_3}),
-    //.fl_buffer_full(fifo_full[0]),
     .fifo3_almost_full(fu_fifo_stall.alu),
     .fu_pckt_out({iss_issued_fu_pkts[ALU_1], iss_issued_fu_pkts[ALU_2], iss_issued_fu_pkts[ALU_3]})
    
@@ -49,7 +48,6 @@ fu_FIFO_3 ls_fifo(
     .rst(rst ),
     .fu_pckt_in(iss_ls_fifo_push_pkts),
     .fifo3_read_en_mask({fu_ready_is.loadstore_1, fu_ready_is.loadstore_2, 1'b0}),
-    //.fl_buffer_full(fifo_full[1]),
     .fifo3_almost_full(fu_fifo_stall.ls),
     .fu_pckt_out({iss_issued_fu_pkts[LS_1], iss_issued_fu_pkts[LS_2], iss_fifo_drop_pkts[0]})
 
@@ -60,7 +58,6 @@ fu_FIFO_3 mult_fifo(
     .rst(rst ),
     .fu_pckt_in(iss_mult_fifo_push_pkts),
     .fifo3_read_en_mask({fu_ready_is.mult_1, fu_ready_is.mult_2, 1'b0}),
-    //.fl_buffer_full(fifo_full[2]),
     .fifo3_almost_full(fu_fifo_stall.mult),
     .fu_pckt_out({iss_issued_fu_pkts[MULT_1], iss_issued_fu_pkts[MULT_2], iss_fifo_drop_pkts[1]})
 
@@ -71,7 +68,6 @@ fu_FIFO_3 br_fifo(
     .rst(rst ),
     .fu_pckt_in(iss_br_fifo_push_pkts),
     .fifo3_read_en_mask({fu_ready_is.branch, 2'b0}),
-    //.fl_buffer_full(fifo_full[3]),
     .fifo3_almost_full(fu_fifo_stall.branch),
     .fu_pckt_out({iss_issued_fu_pkts[BRANCH], iss_fifo_drop_pkts[3:2]})
 
@@ -84,7 +80,6 @@ module fu_FIFO_3 #(parameter FIFO_DEPTH=`SYS_IS_FIFO_DEPTH)(
     input                       rst,
     input ISSUE_FU_PACKET[2:0]  fu_pckt_in,
     input [2:0]                 fifo3_read_en_mask,
-    //output logic                fl_buffer_full,
     output logic                fifo3_almost_full,
     output ISSUE_FU_PACKET[2:0] fu_pckt_out
 

@@ -71,7 +71,7 @@ logic [`SYS_XLEN-1:0]            branch_target_pc;
 // Inputs
 IF_ID_PACKET [2:0]      dispatch_if_pkts; 
 // outputs
-RS_IN_PACKET [2:0]      dis_rs_packet;
+RS_S_PACKET [2:0]      dis_rs_packet;
 ROB_ENTRY_PACKET [2:0]  dis_rob_packet;
 logic [2:0]             dis_new_pr_en;
 logic [2:0]             fch_dispatch_stall; 

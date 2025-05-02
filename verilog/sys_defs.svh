@@ -261,27 +261,7 @@ typedef struct packed {
         logic [`SYS_XLEN-1:0]    bp_pred_target;
 } IF_ID_PACKET;
 
-// ID2RS
-typedef struct packed {
-    logic               valid; 
-    FU_SELECT           dec_fu_unit_sel;
-    OP_SELECT           dec_fu_opcode;
-    logic [`SYS_XLEN-1:0]   NPC;   // PC + 4
-    logic [`SYS_XLEN-1:0]   PC;    // PC
-    ALU_OPA_SELECT      dec_operandA_mux; // ALU opa mux select 
-    ALU_OPB_SELECT      dec_operandB_mux; // ALU opb mux select 
-    INST          	inst;
-    logic               halt;         
-    logic [`SYS_ROB_ADDR_WIDTH-1:0] 	rob_entry;
-    logic [`SYS_LSQ_ADDR_WIDTH-1:0]	sq_tail; 
-    logic [`SYS_PHYS_REG-1:0]     dispatch_allocated_prs;
-    logic [`SYS_PHYS_REG-1:0]     dispatch_src1_pr;
-    logic               dispatch_src1_rdy;
-    logic [`SYS_PHYS_REG-1:0]     dispatch_src2_pr;
-    logic               dispatch_src2_rdy;
-} RS_IN_PACKET;
-
-// RS2IS
+// ID2RS; RS2IS
 typedef struct packed {
     logic               valid;
     FU_SELECT           dec_fu_unit_sel;
@@ -296,7 +276,9 @@ typedef struct packed {
     logic [`SYS_LSQ_ADDR_WIDTH-1:0]	sq_tail;
     logic [`SYS_PHYS_REG-1:0]     dispatch_allocated_prs;
     logic [`SYS_PHYS_REG-1:0]     dispatch_src1_pr;
+    logic               dispatch_src1_rdy;
     logic [`SYS_PHYS_REG-1:0]     dispatch_src2_pr;
+    logic               dispatch_src2_rdy;
 } RS_S_PACKET;
 
 // IS2FU

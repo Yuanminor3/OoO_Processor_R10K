@@ -8,7 +8,7 @@ module RS_tb;
     reg rst;
     
     // Inputs
-    RS_IN_PACKET [2:0] dispatch_rs_pkts;
+    RS_S_PACKET [2:0] dispatch_rs_pkts;
     FU_FIFO_PACKET fu_fifo_stall;
     CDB_T_PACKET cs_cdb_broadcast;
     reg [2**`SYS_LSQ_ADDR_WIDTH-1:0] rsb_sq_ready_flags;

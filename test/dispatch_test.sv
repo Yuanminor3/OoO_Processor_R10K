@@ -23,7 +23,7 @@ module tb_dispatch_stage_summary;
   //––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
   // Outputs from DUT
   //––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-  RS_IN_PACKET    [2:0]    dispatch_rs_pkts;
+  RS_S_PACKET    [2:0]    dispatch_rs_pkts;
   ROB_ENTRY_PACKET[2:0]    dispatch_rob_pkts;
   logic [2:0]              dispatch_pr_allocEN;
   logic [2:0][`SYS_PHYS_REG_ADDR_WIDTH-1:0]     dispatch_pr_alloc_tags;

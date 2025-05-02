@@ -45,7 +45,7 @@ module dispatch_stage (
     //================================
 
     /* RS Allocation */
-    output RS_IN_PACKET [2:0] dispatch_rs_pkts, 
+    output RS_S_PACKET [2:0] dispatch_rs_pkts, 
 
     /* SYS_ROB_ADDR_WIDTH Allocation */
     output ROB_ENTRY_PACKET [2:0] dispatch_rob_pkts,
