@@ -1,4 +1,8 @@
 # CSEE W4824: Computer Architecture Final Project
+## 📄 Documentation
+
+- [📝 Final Report (PDF)](docs/final_report.pdf)
+- [📊 Final Presentation Slides (PDF)](docs/slides.pdf)
 
 ## 📋 Team Information
 - **Columbia University - Spring 2025**
